@@ -32,12 +32,12 @@ if not os.path.isfile(MKISOFS_EXE):
     MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
 
 asm_files = [
-    "optrix_kernel/bootloader.asm",    # boot sector (must remain first, used for bin)
-    "optrix_kernel/entry.asm",
+    "OptrixOS-Kernel/bootloader.asm",    # boot sector (must remain first, used for bin)
+    "OptrixOS-Kernel/entry.asm",
 ]
 
 c_files = [
-    "optrix_kernel/kmain.c",
+    "OptrixOS-Kernel/kmain.c",
 ]
 
 tmp_files = []
@@ -189,7 +189,7 @@ def main():
         check_file(c)
 
     # Build all ASM and C files, get bootloader bin and kernel bin path
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin="optrix-kernel.bin")
+    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin="OptrixOS-kernel.bin")
 
     # Build floppy image and ISO
     make_dynamic_img(boot_bin, kernel_bin, hd_img)
