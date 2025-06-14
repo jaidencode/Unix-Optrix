@@ -8,8 +8,9 @@ TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads
 CC = os.environ.get("CC") or os.path.join(TOOLCHAIN_DIR, "i686-elf-gcc.exe")
 LD = os.environ.get("LD") or os.path.join(TOOLCHAIN_DIR, "i686-elf-ld.exe")
 OBJDUMP = os.environ.get("OBJDUMP") or os.path.join(TOOLCHAIN_DIR, "i686-elf-objdump.exe")
+NASM = "nasm"
 
-# Try common cross compiler names first
+# Try cross toolchains first
 if not os.path.isfile(CC):
     CC = shutil.which("i686-linux-gnu-gcc") or "i686-linux-gnu-gcc"
 if not os.path.isfile(LD):
@@ -17,35 +18,24 @@ if not os.path.isfile(LD):
 if not os.path.isfile(OBJDUMP):
     OBJDUMP = shutil.which("i686-linux-gnu-objdump") or "i686-linux-gnu-objdump"
 
-# Final fallback to system tools (requires 32-bit support via -m32)
 if not shutil.which(CC):
     CC = "gcc"
 if not shutil.which(LD):
     LD = "ld"
 if not shutil.which(OBJDUMP):
     OBJDUMP = "objdump"
-NASM = "nasm"
 
 CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR") or r"C:\\Program Files (x86)\\cdrtools"
 MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs.exe")
 if not os.path.isfile(MKISOFS_EXE):
     MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
 
-asm_files = [
-    "OptrixOS-Kernel/bootloader.asm",    # boot sector (must remain first, used for bin)
-    "OptrixOS-Kernel/boot2.asm",
-    "OptrixOS-Kernel/kernel_entry.asm",
-]
-
-c_files = [
-    "OptrixOS-Kernel/start.c",
-    "OptrixOS-Kernel/main.c",
-    "OptrixOS-Kernel/memmap.c",
-    "OptrixOS-Kernel/pmm.c",
-    "OptrixOS-Kernel/vmm.c",
-    "OptrixOS-Kernel/slab.c",
-    "OptrixOS-Kernel/heap.c",
-]
+KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
+OUTPUT_ISO = "OptrixOS.iso"
+KERNEL_BIN = "OptrixOS-kernel.bin"
+DISK_IMG = "disk.img"
+TMP_ISO_DIR = "_iso_tmp"
+OBJ_DIR = "_build_obj"
 
 tmp_files = []
 
@@ -55,23 +45,34 @@ def check_file(f):
         sys.exit(1)
 
 def run(cmd, **kwargs):
+    print(" ".join(str(x) for x in cmd))
     result = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     if result.returncode != 0:
-        print("Error running:", ' '.join(cmd))
+        print("Error running:", ' '.join(str(x) for x in cmd))
         print(result.stdout)
         print(result.stderr)
         sys.exit(1)
     return result
 
+def ensure_obj_dir():
+    if not os.path.exists(OBJ_DIR):
+        os.makedirs(OBJ_DIR, exist_ok=True)
+
+def obj_from_src(src):
+    # Turns 'kernel/foo/bar.c' -> '_build_obj_kernel_foo_bar.o'
+    no_sep = src.replace(os.sep, "_").replace("/", "_")
+    base = os.path.splitext(no_sep)[0]
+    return os.path.join(OBJ_DIR, f"{base}.o")
+
 def assemble(src, out, fmt="bin"):
     print(f"Assembling {src} -> {out} ...")
     fmt_flag = "-f" + fmt
-    result = subprocess.run([NASM, fmt_flag, src, "-o", out], capture_output=True, text=True)
-    if result.returncode != 0:
-        print(result.stdout)
-        print(result.stderr)
-        sys.exit(1)
-    print("OK.")
+    run([NASM, fmt_flag, src, "-o", out])
+    tmp_files.append(out)
+
+def compile_c(src, out):
+    print(f"Compiling {src} -> {out} ...")
+    run([CC, "-ffreestanding", "-fno-pie", "-fno-pic", "-m32", "-c", src, "-o", out, "-Iinclude"])
     tmp_files.append(out)
 
 def roundup(x, align):
@@ -96,28 +97,83 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
 
-def make_iso(hd_img, iso_out):
+def collect_source_files(rootdir):
+    asm_files, c_files, h_files = [], [], []
+    for root, _, files in os.walk(rootdir):
+        for f in files:
+            path = os.path.join(root, f)
+            if f.endswith('.asm'):
+                asm_files.append(path)
+            elif f.endswith('.c'):
+                c_files.append(path)
+            elif f.endswith('.h'):
+                h_files.append(path)
+    return asm_files, c_files, h_files
+
+def build_kernel(asm_files, c_files, out_bin):
+    ensure_obj_dir()
+    obj_files = []
+    boot_bin_path = None
+    for asm in asm_files:
+        obj = obj_from_src(asm)
+        base = os.path.splitext(os.path.basename(asm))[0]
+        if "bootloader" in base:
+            boot_bin = "bootloader.bin"
+            assemble(asm, boot_bin, fmt="bin")
+            boot_bin_path = boot_bin
+        else:
+            run([NASM, "-felf32", asm, "-o", obj])
+            obj_files.append(obj)
+            tmp_files.append(obj)
+    for c in c_files:
+        c_obj = obj_from_src(c)
+        compile_c(c, c_obj)
+        obj_files.append(c_obj)
+    # Always check for kernel.ld in project root or current dir
+    linker_script = os.path.join(KERNEL_PROJECT_ROOT, "kernel.ld")
+    if not os.path.exists(linker_script):
+        linker_script = "kernel.ld"
+    check_file(linker_script)
+    elf_out = out_bin.replace(".bin", ".elf")
+    print(f"Linking kernel ELF: {elf_out}")
+    link_cmd_elf = [
+        LD, "-T", linker_script, "-m", "elf_i386", "-nostdlib"
+    ] + obj_files + ["-o", elf_out]
+    run(link_cmd_elf)
+    tmp_files.append(elf_out)
+    print(f"Converting ELF -> BIN: {elf_out} -> {out_bin}")
+    link_cmd_bin = [
+        LD, "-T", linker_script, "-m", "elf_i386", "--oformat", "binary", "-nostdlib"
+    ] + obj_files + ["-o", out_bin]
+    run(link_cmd_bin)
+    tmp_files.append(out_bin)
+    return boot_bin_path, out_bin
+
+def copy_tree_to_iso(tmp_iso_dir, proj_root):
+    print("Copying project files to ISO structure...")
+    if os.path.exists(tmp_iso_dir):
+        shutil.rmtree(tmp_iso_dir)
+    os.makedirs(tmp_iso_dir, exist_ok=True)
+    shutil.copytree(proj_root, os.path.join(tmp_iso_dir, proj_root), dirs_exist_ok=True)
+    # Place kernel image and bootloader at root
+    if os.path.exists(KERNEL_BIN):
+        shutil.copy(KERNEL_BIN, os.path.join(tmp_iso_dir, KERNEL_BIN))
+    if os.path.exists("bootloader.bin"):
+        shutil.copy("bootloader.bin", os.path.join(tmp_iso_dir, "bootloader.bin"))
+
+def make_iso_with_tree(tmp_iso_dir, iso_out):
     print(f"Creating ISO using: {MKISOFS_EXE}")
     if not os.path.isfile(MKISOFS_EXE):
         print(f"Error: mkisofs.exe not found at {MKISOFS_EXE}!")
         sys.exit(1)
-    tmp_dir = "_iso_tmp"
-    os.makedirs(tmp_dir, exist_ok=True)
-    shutil.copy(hd_img, os.path.join(tmp_dir, hd_img))
     cmd = [
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", hd_img,
-        tmp_dir
+        "-b", "bootloader.bin",
+        tmp_iso_dir
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(result.stdout)
-        print(result.stderr)
-        shutil.rmtree(tmp_dir)
-        sys.exit(1)
-    shutil.rmtree(tmp_dir)
+    run(cmd)
     print(f"ISO created: {iso_out}")
     tmp_files.append(iso_out)
 
@@ -128,82 +184,22 @@ def cleanup():
                 os.remove(f)
         except Exception as e:
             print(f"Warning: Could not delete {f}: {e}")
-
-def build_kernel(asm_files, c_files, out_bin):
-    obj_files = []
-    seen_objs = set()
-
-    # Assemble all .asm files except the bootloader (use as kernel objects)
-    for idx, asm in enumerate(asm_files):
-        check_file(asm)
-        base = os.path.splitext(os.path.basename(asm))[0]
-        if idx == 0:
-            boot_bin = base + ".bin"
-            assemble(asm, boot_bin, fmt="bin")
-            boot_bin_path = boot_bin
-        else:
-            obj = f"{base}_stubs.o"
-            if obj not in seen_objs:
-                print(f"Assembling ASM: {asm} -> {obj}")
-                run([NASM, "-felf32", asm, "-o", obj])
-                obj_files.append(obj)
-                tmp_files.append(obj)
-                seen_objs.add(obj)
-
-    # Compile all .c files to .o
-    for c in c_files:
-        check_file(c)
-        base = os.path.splitext(os.path.basename(c))[0]
-        c_obj = f"{base}.o"
-        if c_obj not in seen_objs:
-            print(f"Compiling C source: {c} -> {c_obj}")
-            run([CC, "-ffreestanding", "-fno-pie", "-fno-pic", "-m32", "-c", c, "-o", c_obj])
-            obj_files.append(c_obj)
-            tmp_files.append(c_obj)
-            seen_objs.add(c_obj)
-
-    # Link to ELF for debugging (add -e start)
-    kernel_bin = out_bin
-    elf_out = kernel_bin.replace(".bin", ".elf")
-    print(f"Linking kernel ELF: {elf_out}")
-    link_cmd_elf = [LD, "-Ttext", "0x1000", "-m", "elf_i386", "-e", "start", "-nostdlib"] + obj_files + ["-o", elf_out]
-    run(link_cmd_elf)
-    tmp_files.append(elf_out)
-
-    # Dump debug info from ELF
-    print("\n=== KERNEL SYMBOLS (ELF) ===")
-    run([OBJDUMP, "-t", elf_out])
-
-    print("\n=== KERNEL SECTIONS (ELF) ===")
-    run([OBJDUMP, "-h", elf_out])
-
-    # Convert ELF to raw BIN for booting (add -e start)
-    print(f"Converting ELF -> BIN: {elf_out} -> {kernel_bin}")
-    link_cmd_bin = [LD, "-Ttext", "0x1000", "-m", "elf_i386", "-e", "start", "--oformat", "binary", "-nostdlib", "-no-pie"] + obj_files + ["-o", kernel_bin]
-    run(link_cmd_bin)
-    tmp_files.append(kernel_bin)
-
-    return boot_bin_path, kernel_bin
+    if os.path.exists(OBJ_DIR):
+        shutil.rmtree(OBJ_DIR)
 
 def main():
-    iso_out    = "OptrixOS.iso"
-    hd_img     = "disk.img"
-
-    # Checks
-    for asm in asm_files:
-        check_file(asm)
-    for c in c_files:
-        check_file(c)
-
-    # Build all ASM and C files, get bootloader bin and kernel bin path
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin="OptrixOS-kernel.bin")
-
-    # Build floppy image and ISO
-    make_dynamic_img(boot_bin, kernel_bin, hd_img)
-    make_iso(hd_img, iso_out)
-
-    # Done, cleanup everything except ISO
-    files_to_keep = {iso_out}
+    print("Collecting all project source files...")
+    asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
+    print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
+    # Build kernel and bootloader
+    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
+    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    # Copy full project tree to ISO structure
+    copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
+    # Build ISO with correct directory hierarchy and boot sector
+    make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
+    # Clean up
+    files_to_keep = {OUTPUT_ISO}
     print("\nCleaning up temporary build files...")
     for f in tmp_files:
         if f not in files_to_keep and os.path.exists(f):
@@ -211,8 +207,10 @@ def main():
                 os.remove(f)
             except Exception as e:
                 print(f"Warning: Could not delete {f}: {e}")
-
-    print(f"\nBuild complete! Bootable ISO is '{iso_out}'")
+    print(f"\nBuild complete! Bootable ISO is '{OUTPUT_ISO}'")
+    if os.path.exists(TMP_ISO_DIR):
+        shutil.rmtree(TMP_ISO_DIR)
+    cleanup()
 
 if __name__ == "__main__":
     main()
