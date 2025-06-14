@@ -1,5 +1,5 @@
 void kmain(void) {
-    const char *msg = "Optrix kernel loaded";
+    const char *msg = "Kernel Loaded";
     char *video = (char*)0xb8000;
     for (int i = 0; msg[i]; i++) {
         video[i*2] = msg[i];
