@@ -1,6 +1,11 @@
 #include <stdint.h>
 #include "font8x8_basic.h"
 #include "boot_params.h"
+#include "memmap.h"
+#include "pmm.h"
+#include "vmm.h"
+#include "heap.h"
+#include "slab.h"
 
 #define COM1 0x3F8
 
@@ -60,6 +65,22 @@ void main(void) {
     const char* msg = "OS Loaded";
     init_serial();
     log("Kernel start\n");
+
+    memmap_init();
+    pmm_init(memmap_regions(), memmap_region_count());
+    heap_init();
+    slab_init();
+    vmm_init();
+
+    /* simple allocation test */
+    char* test = kmalloc(16);
+    if (test) {
+        for (int i = 0; i < 15; i++) test[i] = 'A' + i;
+        test[15] = '\0';
+        log("Allocated: ");
+        log(test);
+        log("\n");
+    }
 
     // Clear graphics screen
     uint8_t* video = (uint8_t*)0xA0000;
