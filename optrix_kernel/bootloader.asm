@@ -44,6 +44,11 @@ read_char:
 done_read:
     call newline
 
+    ; inform the user we are loading the kernel
+    mov si, load_msg
+    call print_string
+    call newline
+
     ; load kernel from disk (KERNEL_SECTORS sectors) to 0x1000
     mov bx, 0x1000
     mov dh, 0
@@ -54,6 +59,10 @@ done_read:
     mov cl, 2
     int 0x13
     jc disk_error
+
+    mov si, loaded_msg
+    call print_string
+    call newline
 
     ; enter protected mode
     cli
@@ -76,6 +85,8 @@ init_pm:
 
 [bits 16]
 disk_error:
+    mov si, disk_msg
+    call print_string
     hlt
     jmp disk_error
 
@@ -112,6 +123,9 @@ newline:
     ret
 
 prompt_msg db 'Kernel path: ',0
+load_msg   db 'Loading kernel...',0
+loaded_msg db 'Kernel Loaded',0
+disk_msg   db 'Disk read error',0
 PATH_BUF times 64 db 0
 
 BOOT_DRIVE db 0

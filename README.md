@@ -23,3 +23,16 @@ On Ubuntu these tools can be installed with:
 ```bash
 sudo apt-get install gcc-i686-linux-gnu binutils-i686-linux-gnu genisoimage
 ```
+
+Build the bootable image with:
+
+```bash
+python3 setup_bootloader.py
+```
+
+If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
+script outputs `disk.img` which can be run with:
+
+```bash
+qemu-system-x86_64 -hda disk.img
+```
