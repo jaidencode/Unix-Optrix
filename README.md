@@ -14,4 +14,12 @@ behaviour of the historic `fsboot` loader. When executed it:
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
 script builds a small custom kernel located in `optrix_kernel/` and produces
-`optrix-kernel.bin`. It requires `nasm`, `gcc` with 32-bit support, and `ld`.
+`optrix-kernel.bin`. A cross compiler (`i686-linux-gnu-gcc`/`ld`) is preferred,
+but if it is not installed the script will fall back to the system `gcc` and
+`ld` with `-m32`.
+
+On Ubuntu these tools can be installed with:
+
+```bash
+sudo apt-get install gcc-i686-linux-gnu binutils-i686-linux-gnu genisoimage
+```
