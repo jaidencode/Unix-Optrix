@@ -1,6 +1,6 @@
 [bits 32]
 
-extern kmain
+extern kernel_start
 
 section .text
 
@@ -10,7 +10,7 @@ start:
     ; set up stack
     mov esp, stack_top
     push 0
-    call kmain
+    call kernel_start
 .halt:
     hlt
     jmp .halt
