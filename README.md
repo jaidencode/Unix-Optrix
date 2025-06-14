@@ -1,7 +1,7 @@
 # OptrixOS
 
 This project experiments with building a small Unix-like operating system. The
-boot sector is defined in `optrix_kernel/bootloader.asm` and now mimics the
+boot sector is defined in `OptrixOS-Kernel/bootloader.asm` and now mimics the
 behaviour of the historic `fsboot` loader. When executed it:
 
 - Copies itself away from `0x7c00` so memory can be cleared.
@@ -13,8 +13,8 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Jumps to the kernel entry point.
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
-script builds a small custom kernel located in `optrix_kernel/` and produces
-`optrix-kernel.bin`. A cross compiler (`i686-linux-gnu-gcc`/`ld`) is preferred,
+script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
+`OptrixOS-kernel.bin`. A cross compiler (`i686-linux-gnu-gcc`/`ld`) is preferred,
 but if it is not installed the script will fall back to the system `gcc` and
 `ld` with `-m32`.
 
