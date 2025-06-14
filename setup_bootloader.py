@@ -9,12 +9,21 @@ CC = os.environ.get("CC") or os.path.join(TOOLCHAIN_DIR, "i686-elf-gcc.exe")
 LD = os.environ.get("LD") or os.path.join(TOOLCHAIN_DIR, "i686-elf-ld.exe")
 OBJDUMP = os.environ.get("OBJDUMP") or os.path.join(TOOLCHAIN_DIR, "i686-elf-objdump.exe")
 
+# Try common cross compiler names first
 if not os.path.isfile(CC):
     CC = shutil.which("i686-linux-gnu-gcc") or "i686-linux-gnu-gcc"
 if not os.path.isfile(LD):
     LD = shutil.which("i686-linux-gnu-ld") or "i686-linux-gnu-ld"
 if not os.path.isfile(OBJDUMP):
     OBJDUMP = shutil.which("i686-linux-gnu-objdump") or "i686-linux-gnu-objdump"
+
+# Final fallback to system tools (requires 32-bit support via -m32)
+if not shutil.which(CC):
+    CC = "gcc"
+if not shutil.which(LD):
+    LD = "ld"
+if not shutil.which(OBJDUMP):
+    OBJDUMP = "objdump"
 NASM = "nasm"
 
 CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR") or r"C:\\Program Files (x86)\\cdrtools"
