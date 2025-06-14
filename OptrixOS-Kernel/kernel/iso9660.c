@@ -3,11 +3,8 @@
 #include <stddef.h>
 #include <string.h>
 
-// --- CONFIGURE THIS ---
-// This should be the address at which your ISO is mapped in RAM.
-// If you map your ISO at boot, set ISO_BASE accordingly.
-// For QEMU -cdrom you need an ATAPI driver; this is for memory-mapped ISO images.
-#define ISO_BASE ((uint8_t*)0x2000000)   // <-- change as needed
+// --- CONFIGURE THIS FOR YOUR SYSTEM ---
+#define ISO_BASE ((uint8_t*)0x2000000)   // <-- Change to your mapped ISO address!
 #define SECTOR_SIZE 2048
 
 typedef struct {
@@ -27,15 +24,13 @@ typedef struct {
     char     file_id[1]; // variable
 } __attribute__((packed)) iso_dir_record_t;
 
-// Little-endian 32
 static uint32_t le32(const void* p) {
     const uint8_t* b = (const uint8_t*)p;
     return b[0] | (b[1]<<8) | (b[2]<<16) | (b[3]<<24);
 }
 
-// Case-insensitive compare, stops at ';' or null
+// Compares two filenames case-insensitively, stops at ';' or 0
 static int iso_namecmp(const char* a, const char* b) {
-    // Compare up to a semicolon or null in either string
     while (*a && *b && *a != ';' && *b != ';') {
         char ca = *a, cb = *b;
         if (ca >= 'a' && ca <= 'z') ca -= 32;
@@ -43,12 +38,11 @@ static int iso_namecmp(const char* a, const char* b) {
         if (ca != cb) return ca - cb;
         ++a; ++b;
     }
-    // Stop at semicolon/version
     if ((*a == ';' || *a == 0) && (*b == ';' || *b == 0)) return 0;
     return (*a) - (*b);
 }
 
-void* iso9660_load_file(const char* filename, size_t* filesize) {
+void* iso9660_read_file(const char* filename, size_t* filesize) {
     uint8_t* pvd = ISO_BASE + 0x8000; // sector 16
     if (pvd[0] != 1 || memcmp(pvd+1, "CD001", 5) != 0) return NULL;
 

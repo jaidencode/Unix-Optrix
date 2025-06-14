@@ -18,6 +18,13 @@ void kernel_main(void) {
     // Launch the GUI shell
     fabric_main();
 
-    // Never returns, but just in case...
-    while (1) __asm__ __volatile__("hlt");
+    #define VGA_ADDR ((volatile char*)0xB8000)
+    void vga_putc(int col, int row, char c, char color) {
+        VGA_ADDR[2*(row*80 + col)] = c;
+        VGA_ADDR[2*(row*80 + col)+1] = color;
+    }
+
+    // In kernel_main():
+    vga_putc(0, 0, 'X', 0x0F);
+    while(1) __asm__ __volatile__("hlt");
 }

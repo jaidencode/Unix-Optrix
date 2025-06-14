@@ -1,27 +1,52 @@
 #include <stdint.h>
 #include <stddef.h>
-#include "cursor.h"    // Cursor struct + draw_cursor()
-#include "iso9660.h"   // Your ISO9660 file loader
-#include "vga.h"       // For fallback error message
+#include "cursor.h"
 
-#define WIDTH  1024
-#define HEIGHT 768
-#define CURSOR_PATH "RESOURCES/CURSORS/OXY-CHROME/POINTING_HAND.CUR"
+// --- KERNEL MEMORY STUBS FOR stb_image ---
+void* kernel_malloc(size_t size) {
+    extern void* pmm_alloc(void);  // Plug in your real allocator
+    return pmm_alloc();
+}
+void kernel_free(void* ptr) { /* TODO: implement free if needed */ }
+void* kernel_realloc(void* ptr, size_t size) { return NULL; }
 
-// These should be updated by your PS/2 mouse IRQ handler:
-extern volatile int mouse_x;
-extern volatile int mouse_y;
+#define STBI_MALLOC(sz)      kernel_malloc(sz)
+#define STBI_REALLOC(p,sz)   kernel_realloc(p,sz)
+#define STBI_FREE(p)         kernel_free(p)
+#define STBI_NO_STDIO
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 
-#define FB_ADDR ((uint32_t*)0xE0000000) // Set to your framebuffer base
+// --- UI CONSTANTS ---
+#define WIDTH   1024
+#define HEIGHT  768
+#define FB_ADDR ((uint32_t*)0xE0000000) // Set to your real framebuffer address
 
+// Mouse globals -- ONLY declare here, define in mouse.c!
+extern volatile int mouse_x, mouse_y;
+extern void mouse_init(void); // Your mouse driver init
+
+// System cursor pointer
 static Cursor* system_cursor = NULL;
+static int mouse_driver_loaded = 0;
 
+// --- Wallpaper buffer ---
+static uint32_t wallpaper[WIDTH * HEIGHT]; // fallback: holds wallpaper pixels
+
+// --- Helper: Fill screen with a color ---
 static void clear_screen(uint32_t color) {
-    for (int y = 0; y < HEIGHT; ++y)
-        for (int x = 0; x < WIDTH; ++x)
-            FB_ADDR[y * WIDTH + x] = color;
+    for (int i = 0; i < WIDTH * HEIGHT; ++i)
+        FB_ADDR[i] = color;
 }
 
+// --- Helper: Draw wallpaper image (assumes RGBA8888, 1024x768) ---
+static void draw_wallpaper(void) {
+    for (int y = 0; y < HEIGHT; ++y)
+        for (int x = 0; x < WIDTH; ++x)
+            FB_ADDR[y * WIDTH + x] = wallpaper[y * WIDTH + x];
+}
+
+// --- Draw window (demo) ---
 static void draw_window(void) {
     int win_w = 400, win_h = 300;
     int x0 = (WIDTH - win_w) / 2;
@@ -31,6 +56,7 @@ static void draw_window(void) {
             FB_ADDR[(y0 + y) * WIDTH + (x0 + x)] = 0xFFFFFFFF;
 }
 
+// --- Draw blue title bar ---
 static void draw_title_bar(void) {
     int win_w = 400, win_h = 30;
     int x0 = (WIDTH - win_w) / 2;
@@ -40,34 +66,63 @@ static void draw_title_bar(void) {
             FB_ADDR[(y0 + y) * WIDTH + (x0 + x)] = 0xFF2222CC;
 }
 
-// Fabric main UI loop
+// --- Load wallpaper from JPEG on ISO ---
+static void load_wallpaper(void) {
+    extern uint8_t* iso9660_read_file(const char* path, size_t* out_size);
+    size_t jpg_size = 0;
+    uint8_t* jpg_data = iso9660_read_file("WALLPAPE.JPG", &jpg_size); // Use ISO 9660 file name!
+
+    int w = 0, h = 0, comp = 0;
+    if (jpg_data) {
+        unsigned char* pixels = stbi_load_from_memory(jpg_data, jpg_size, &w, &h, &comp, 4);
+        if (pixels && w == WIDTH && h == HEIGHT) {
+            for (int i = 0; i < WIDTH * HEIGHT; ++i)
+                wallpaper[i] = ((uint32_t*)pixels)[i];
+        } else {
+            for (int i = 0; i < WIDTH * HEIGHT; ++i)
+                wallpaper[i] = 0xFF2266CC;
+        }
+        if (pixels)
+            stbi_image_free(pixels);
+        // free(jpg_data); // Only if malloc'd!
+    } else {
+        for (int i = 0; i < WIDTH * HEIGHT; ++i)
+            wallpaper[i] = 0xFF2266CC;
+    }
+}
+
+// --- Fabric main UI loop ---
 void fabric_main(void) {
-    // 1. Load cursor file from ISO9660 ONCE at startup
-    if (!system_cursor) {
-        size_t cursz = 0;
-        void* curfile = iso9660_load_file(CURSOR_PATH, &cursz);
-        if (curfile && cursz > 0) {
-            system_cursor = load_cursor_from_cur((const uint8_t*)curfile, cursz);
-        }
-        if (!system_cursor) {
-            vga_print_center("Cursor file missing! Using fallback.", 0x0C);
-            // fallback: draw a square pointer, or set a minimal default
-            // Optionally allocate a minimal cursor struct here
-        }
+    if (!mouse_driver_loaded) {
+        mouse_init();
+        mouse_driver_loaded = 1;
     }
 
-    // 2. Main UI "loop" — redraw everything each time, no cursor trails
+    // 1. Load wallpaper image ONCE
+    load_wallpaper();
+
+    // 2. Load cursor file ONCE at startup (edit symbol name for your path!)
+    if (!system_cursor) {
+        extern uint8_t _binary_OptrixOS_Kernel_resources_cursors_oxy_chrome_pointing_hand_cur_start[];
+        extern uint8_t _binary_OptrixOS_Kernel_resources_cursors_oxy_chrome_pointing_hand_cur_end[];
+        size_t cursor_size = _binary_OptrixOS_Kernel_resources_cursors_oxy_chrome_pointing_hand_cur_end
+                           - _binary_OptrixOS_Kernel_resources_cursors_oxy_chrome_pointing_hand_cur_start;
+        system_cursor = load_cursor_from_cur(
+            _binary_OptrixOS_Kernel_resources_cursors_oxy_chrome_pointing_hand_cur_start,
+            cursor_size
+        );
+        // fallback: make your own cursor if needed
+    }
+
     while (1) {
-        clear_screen(0xFF2266CC); // blue desktop
+        draw_wallpaper();         
         draw_window();
         draw_title_bar();
-        // ...draw more UI if you wish...
+        // ...other UI...
 
-        // Draw the mouse cursor LAST (on top, no trails)
-        if (system_cursor)
+        if (mouse_driver_loaded && system_cursor)
             draw_cursor(FB_ADDR, WIDTH, HEIGHT, system_cursor, mouse_x, mouse_y);
 
-        // Wait for next event, or just HLT for demo:
         __asm__ __volatile__("hlt");
     }
 }

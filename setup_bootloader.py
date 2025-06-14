@@ -122,10 +122,44 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
+# === BINARY RESOURCE EMBEDDING LOGIC ===
+resource_bin_files = [
+    # (source_path, output_obj_path)
+    ("OptrixOS-Kernel/resources/cursors/oxy-chrome/pointing_hand.cur",
+     "_build_obj/_OptrixOS-Kernel_resources_cursors_oxy_chrome_pointing_hand_cur.o"),
+    # Add more resources here as needed:
+    # ("OptrixOS-Kernel/resources/images/wallpaper.jpg",
+    #  "_build_obj/_OptrixOS-Kernel_resources_images_wallpaper_jpg.o"),
+]
+
+def objcopy_binary(input_path, output_obj):
+    if not os.path.exists(input_path):
+        print(f"ERROR: Resource not found: {input_path}")
+        sys.exit(1)
+    # Only rebuild if changed
+    if not os.path.exists(output_obj) or os.path.getmtime(output_obj) < os.path.getmtime(input_path):
+        print(f"Embedding resource: {input_path} -> {output_obj}")
+        result = subprocess.run([
+            "objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386",
+            input_path, output_obj
+        ], capture_output=True, text=True)
+        if result.returncode != 0:
+            print("objcopy failed:", result.stdout, result.stderr)
+            sys.exit(1)
+        tmp_files.append(output_obj)
+    else:
+        print(f"Resource already up to date: {output_obj}")
+
+
 def build_kernel(asm_files, c_files, out_bin):
     ensure_obj_dir()
     obj_files = []
     boot_bin_path = None
+    # --- Embed resources before compiling kernel ---
+    for bin_path, obj_path in resource_bin_files:
+        objcopy_binary(bin_path, obj_path)
+        obj_files.append(obj_path)
+    # --- Your original kernel build logic below ---
     for asm in asm_files:
         obj = obj_from_src(asm)
         base = os.path.splitext(os.path.basename(asm))[0]
