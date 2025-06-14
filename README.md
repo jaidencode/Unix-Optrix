@@ -11,6 +11,10 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Loads the kernel from the disk image into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
+- Sets VGA mode 13h so the kernel can render graphics.
+
+Once the kernel takes over it clears the graphics screen and displays
+"OS Loaded" centred using a tiny built-in font.
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
 script builds a small custom kernel located in `OptrixOS-Kernel/` and produces

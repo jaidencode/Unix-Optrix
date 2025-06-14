@@ -33,11 +33,13 @@ if not os.path.isfile(MKISOFS_EXE):
 
 asm_files = [
     "OptrixOS-Kernel/bootloader.asm",    # boot sector (must remain first, used for bin)
-    "OptrixOS-Kernel/entry.asm",
+    "OptrixOS-Kernel/boot2.asm",
+    "OptrixOS-Kernel/kernel_entry.asm",
 ]
 
 c_files = [
-    "OptrixOS-Kernel/kmain.c",
+    "OptrixOS-Kernel/start.c",
+    "OptrixOS-Kernel/main.c",
 ]
 
 tmp_files = []

@@ -5,15 +5,26 @@ global boot
 
 BOOT_DRIVE: db 0
 KERNEL_SECTORS equ 16
-; Load the kernel to the physical address matching the linker script
-; (setup_bootloader.py links the kernel with -Ttext 0x1000). Loading
-; above the 1MB boundary would require enabling the A20 line which the
-; bootloader currently does not do, so use 0x1000 which is safely below
-; the real mode limit.
 KERNEL_LOAD_ADDR equ 0x1000
+
+msg_boot db 'OptrixOS Kernel boot',0
 
 boot:
     mov [BOOT_DRIVE], dl       ; save boot drive
+
+    ; print boot message
+    mov si, msg_boot
+.print_loop:
+    lodsb
+    test al, al
+    jz .after_print
+    mov ah, 0x0E
+    mov bh, 0x00
+    mov bl, 0x07
+    int 0x10
+    jmp .print_loop
+.after_print:
+
     cli
     xor ax, ax
     mov ds, ax
@@ -31,6 +42,10 @@ boot:
     mov cl, 2
     int 0x13
     jc disk_error
+
+    ; set graphics mode 13h
+    mov ax, 0x0013
+    int 0x10
 
     ; set up GDT
     lgdt [gdt_desc]
