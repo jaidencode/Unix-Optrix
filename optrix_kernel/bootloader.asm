@@ -1,30 +1,48 @@
-; Bootloader for OptrixOS
+; Bootloader for OptrixOS (stage1)
 [org 0x7c00]
 [bits 16]
 
 global boot
 boot:
     cli
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    mov si, 0x7c00
+    mov di, 0x0600
+    mov cx, 512/2
+    rep movsw
+    jmp 0x0000:boot_main
+
+boot_main:
     mov [BOOT_DRIVE], dl
     xor ax, ax
     mov ds, ax
     mov es, ax
     mov ss, ax
     mov sp, 0x7c00
+    ; clear low memory excluding this bootloader
+    mov di, 0x0000
+    mov cx, 0x0300
+    xor ax, ax
+    rep stosw
+    mov di, 0x0800
+    mov cx, (0x7c00 - 0x0800) / 2
+    rep stosw
     sti
 
-    ; load kernel (one sector) to 0x1000
+    ; load kernel from disk (KERNEL_SECTORS sectors) to 0x1000
     mov bx, 0x1000
     mov dh, 0
     mov dl, [BOOT_DRIVE]
     mov ah, 0x02
-    mov al, 1
+    mov al, KERNEL_SECTORS
     mov ch, 0
     mov cl, 2
     int 0x13
     jc disk_error
 
-    ; setup GDT for protected mode
+    ; enter protected mode
     cli
     lgdt [GDT_DESC]
     mov eax, cr0
@@ -32,7 +50,6 @@ boot:
     mov cr0, eax
     jmp CODE_SEG:init_pm
 
-; 32-bit code
 [bits 32]
 init_pm:
     mov ax, DATA_SEG
@@ -50,21 +67,20 @@ disk_error:
     jmp disk_error
 
 BOOT_DRIVE db 0
+KERNEL_SECTORS equ 4
 
-; GDT entries
 align 4
 GDT:
     dq 0
 CODE_SEG equ 0x08
 DATA_SEG equ 0x10
-    dq 0x00cf9a000000ffff ; code segment
-    dq 0x00cf92000000ffff ; data segment
+    dq 0x00cf9a000000ffff
+    dq 0x00cf92000000ffff
 GDT_END:
 
-; GDT descriptor
 GDT_DESC:
     dw GDT_END - GDT - 1
     dd GDT
 
-times 510 - ($-$$) db 0
-DW 0xAA55
+times 510-($-$$) db 0
+dw 0xaa55
