@@ -1,0 +1,7 @@
+#ifndef BOOT_PARAMS_H
+#define BOOT_PARAMS_H
+
+#define KERNEL_LOAD_ADDR 0x1000
+#define KERNEL_STACK_TOP 0x90000
+
+#endif /* BOOT_PARAMS_H */
