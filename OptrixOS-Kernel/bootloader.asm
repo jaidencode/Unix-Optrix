@@ -4,7 +4,11 @@
 global boot
 
 BOOT_DRIVE: db 0
-KERNEL_SECTORS equ 16
+; Number of 512 byte sectors to load for the kernel. The previous value of
+; 16 was insufficient once the kernel grew in size which caused the boot
+; process to hang before the graphical mode was initialised. 32 sectors is
+; plenty of room for the current build and keeps things simple.
+KERNEL_SECTORS equ 32
 KERNEL_LOAD_ADDR equ 0x1000
 
 msg_boot db 'OptrixOS Kernel boot',0
