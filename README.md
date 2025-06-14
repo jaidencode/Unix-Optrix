@@ -8,4 +8,5 @@ initial bootloader is written in NASM and performs the following steps:
 - Jumps to the kernel entry point.
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
-script requires `nasm`, `gcc` with 32-bit support, and `ld`.
+script builds a small custom kernel located in `optrix_kernel/` and produces
+`optrix-kernel.bin`. It requires `nasm`, `gcc` with 32-bit support, and `ld`.

@@ -24,22 +24,11 @@ if not os.path.isfile(MKISOFS_EXE):
 
 asm_files = [
     "bootloader.asm",    # boot sector (must remain first, used for bin)
-    "kernel.asm",        # kernel entry
-    "idt.asm"
+    "optrix_kernel/entry.asm",
 ]
 
 c_files = [
-    "kernel_main.c",
-    "vga.c",
-    "graphics.c",
-    "pmm.c",
-    "vmm.c",
-    "idt.c",
-    "hardware.c",
-    "keyboard.c",
-    "mouse.c",
-    "fabric.c",
-    "font8x8.c"
+    "optrix_kernel/kmain.c",
 ]
 
 tmp_files = []
@@ -158,7 +147,7 @@ def build_kernel(asm_files, c_files, out_bin):
             seen_objs.add(c_obj)
 
     # Link to ELF for debugging (add -e start)
-    kernel_bin = "kernel.bin"
+    kernel_bin = out_bin
     elf_out = kernel_bin.replace(".bin", ".elf")
     print(f"Linking kernel ELF: {elf_out}")
     link_cmd_elf = [LD, "-Ttext", "0x1000", "-m", "elf_i386", "-e", "start", "-nostdlib"] + obj_files + ["-o", elf_out]
@@ -191,7 +180,7 @@ def main():
         check_file(c)
 
     # Build all ASM and C files, get bootloader bin and kernel bin path
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin="kernel.bin")
+    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin="optrix-kernel.bin")
 
     # Build floppy image and ISO
     make_dynamic_img(boot_bin, kernel_bin, hd_img)
