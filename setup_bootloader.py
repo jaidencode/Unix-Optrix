@@ -40,6 +40,11 @@ asm_files = [
 c_files = [
     "OptrixOS-Kernel/start.c",
     "OptrixOS-Kernel/main.c",
+    "OptrixOS-Kernel/memmap.c",
+    "OptrixOS-Kernel/pmm.c",
+    "OptrixOS-Kernel/vmm.c",
+    "OptrixOS-Kernel/slab.c",
+    "OptrixOS-Kernel/heap.c",
 ]
 
 tmp_files = []
