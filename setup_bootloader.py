@@ -2,6 +2,7 @@ import subprocess
 import sys
 import os
 import shutil
+import stat
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -10,7 +11,6 @@ LD = os.environ.get("LD") or os.path.join(TOOLCHAIN_DIR, "i686-elf-ld.exe")
 OBJDUMP = os.environ.get("OBJDUMP") or os.path.join(TOOLCHAIN_DIR, "i686-elf-objdump.exe")
 NASM = "nasm"
 
-# Try cross toolchains first
 if not os.path.isfile(CC):
     CC = shutil.which("i686-linux-gnu-gcc") or "i686-linux-gnu-gcc"
 if not os.path.isfile(LD):
@@ -30,8 +30,9 @@ MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs.e
 if not os.path.isfile(MKISOFS_EXE):
     MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
 
-KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
-OUTPUT_ISO = "OptrixOS.iso"
+KERNEL_PROJECT_ROOT = "."
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
 TMP_ISO_DIR = "_iso_tmp"
@@ -71,8 +72,17 @@ def assemble(src, out, fmt="bin"):
     tmp_files.append(out)
 
 def compile_c(src, out):
-    print(f"Compiling {src} -> {out} ...")
-    run([CC, "-ffreestanding", "-fno-pie", "-fno-pic", "-m32", "-c", src, "-o", out, "-Iinclude"])
+    run([
+        CC,
+        "-ffreestanding",
+        "-fno-pie",
+        "-fno-pic",
+        "-m32",
+        "-c", src,
+        "-o", out,
+        "-Iinclude",
+        "-IOptrixOS-Kernel/include"
+    ])
     tmp_files.append(out)
 
 def roundup(x, align):
@@ -99,7 +109,9 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
-    for root, _, files in os.walk(rootdir):
+    skip_dirs = {'.git', '_iso_tmp', '_build_obj', '__pycache__'}
+    for root, dirs, files in os.walk(rootdir):
+        dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.')]
         for f in files:
             path = os.path.join(root, f)
             if f.endswith('.asm'):
@@ -130,7 +142,7 @@ def build_kernel(asm_files, c_files, out_bin):
         compile_c(c, c_obj)
         obj_files.append(c_obj)
     # Always check for kernel.ld in project root or current dir
-    linker_script = os.path.join(KERNEL_PROJECT_ROOT, "kernel.ld")
+    linker_script = os.path.join("OptrixOS-Kernel", "kernel.ld")
     if not os.path.exists(linker_script):
         linker_script = "kernel.ld"
     check_file(linker_script)
@@ -149,20 +161,34 @@ def build_kernel(asm_files, c_files, out_bin):
     tmp_files.append(out_bin)
     return boot_bin_path, out_bin
 
+def on_rm_error(func, path, exc_info):
+    # Make file writable and retry (Windows-safe)
+    try:
+        os.chmod(path, stat.S_IWRITE)
+        func(path)
+    except Exception as e:
+        print(f"Failed to delete {path}: {e}")
+
+def ignore_git(dir, files):
+    # Don't copy .git or any hidden folders/files
+    return [f for f in files if f == ".git" or f.startswith('.')]
+
 def copy_tree_to_iso(tmp_iso_dir, proj_root):
     print("Copying project files to ISO structure...")
     if os.path.exists(tmp_iso_dir):
-        shutil.rmtree(tmp_iso_dir)
+        shutil.rmtree(tmp_iso_dir, onerror=on_rm_error)
     os.makedirs(tmp_iso_dir, exist_ok=True)
-    shutil.copytree(proj_root, os.path.join(tmp_iso_dir, proj_root), dirs_exist_ok=True)
-    # Place kernel image and bootloader at root
+    shutil.copytree(proj_root, os.path.join(tmp_iso_dir, os.path.basename(proj_root)),
+                    ignore=ignore_git, dirs_exist_ok=True)
+    # Place kernel image and disk.img at root
     if os.path.exists(KERNEL_BIN):
         shutil.copy(KERNEL_BIN, os.path.join(tmp_iso_dir, KERNEL_BIN))
-    if os.path.exists("bootloader.bin"):
-        shutil.copy("bootloader.bin", os.path.join(tmp_iso_dir, "bootloader.bin"))
+    if os.path.exists("disk.img"):
+        shutil.copy("disk.img", os.path.join(tmp_iso_dir, "disk.img"))
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
     print(f"Creating ISO using: {MKISOFS_EXE}")
+    print(f"ISO should be written to: {iso_out}")
     if not os.path.isfile(MKISOFS_EXE):
         print(f"Error: mkisofs.exe not found at {MKISOFS_EXE}!")
         sys.exit(1)
@@ -170,47 +196,51 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", "bootloader.bin",
+        "-b", "disk.img",
         tmp_iso_dir
     ]
     run(cmd)
-    print(f"ISO created: {iso_out}")
-    tmp_files.append(iso_out)
+    # Forcibly copy ISO to script's dir if not already there
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    dest_iso = os.path.join(script_dir, "OptrixOS.iso")
+    if os.path.abspath(iso_out) != dest_iso:
+        shutil.copyfile(iso_out, dest_iso)
+        print(f"ISO forcibly copied to: {dest_iso}")
+    print(f"ISO created: {dest_iso}")
+    # DO NOT add the ISO to tmp_files here
 
 def cleanup():
     for f in tmp_files:
         try:
-            if os.path.exists(f):
+            # Never touch any .iso file, ever
+            if os.path.exists(f) and not f.lower().endswith(".iso"):
                 os.remove(f)
         except Exception as e:
             print(f"Warning: Could not delete {f}: {e}")
     if os.path.exists(OBJ_DIR):
-        shutil.rmtree(OBJ_DIR)
+        shutil.rmtree(OBJ_DIR, onerror=on_rm_error)
 
 def main():
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
-    # Build kernel and bootloader
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
     make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
-    # Copy full project tree to ISO structure
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
-    # Build ISO with correct directory hierarchy and boot sector
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
-    # Clean up
-    files_to_keep = {OUTPUT_ISO}
-    print("\nCleaning up temporary build files...")
+
+    print("\nCleaning up temporary build files... (ISO is NEVER deleted)")
     for f in tmp_files:
-        if f not in files_to_keep and os.path.exists(f):
-            try:
+        try:
+            # Never touch any .iso file, ever
+            if os.path.exists(f) and not f.lower().endswith(".iso"):
                 os.remove(f)
-            except Exception as e:
-                print(f"Warning: Could not delete {f}: {e}")
-    print(f"\nBuild complete! Bootable ISO is '{OUTPUT_ISO}'")
+        except Exception as e:
+            print(f"Warning: Could not delete {f}: {e}")
     if os.path.exists(TMP_ISO_DIR):
-        shutil.rmtree(TMP_ISO_DIR)
+        shutil.rmtree(TMP_ISO_DIR, onerror=on_rm_error)
     cleanup()
+    print(f"\nBuild complete! Bootable ISO is at: {OUTPUT_ISO}")
 
 if __name__ == "__main__":
     main()

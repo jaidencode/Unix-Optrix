@@ -13,4 +13,5 @@ void kernel_main(void) {
     else
         vga_print_at(0, 180, "Physical memory allocation failed!", 0x0C);
     while (1);
+    fabric_main();
 }
