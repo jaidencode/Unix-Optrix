@@ -1,7 +1,8 @@
 # OptrixOS
 
 This project experiments with building a small Unix-like operating system. The
-initial bootloader is written in NASM and performs the following steps:
+boot sector is defined in `optrix_kernel/bootloader.asm` and performs the
+following steps:
 
 - Loads the kernel from the disk image into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.

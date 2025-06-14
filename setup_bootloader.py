@@ -23,7 +23,7 @@ if not os.path.isfile(MKISOFS_EXE):
     MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
 
 asm_files = [
-    "bootloader.asm",    # boot sector (must remain first, used for bin)
+    "optrix_kernel/bootloader.asm",    # boot sector (must remain first, used for bin)
     "optrix_kernel/entry.asm",
 ]
 
