@@ -4,6 +4,15 @@
 
 global boot
 boot:
+    ; copy ourselves to 0x0600 so we can reuse 0x7c00 area
+    cld
+    mov si, 0x7c00
+    mov di, 0x0600
+    mov cx, 256
+    rep movsw
+    jmp 0x0000:boot_stage2
+
+boot_stage2:
     cli
     mov [BOOT_DRIVE], dl
     xor ax, ax
@@ -12,6 +21,28 @@ boot:
     mov ss, ax
     mov sp, 0x7c00
     sti
+
+    ; clear a small portion of memory (~64KB) like fsboot.s
+    mov ax, 0
+    mov es, ax
+    mov di, 0
+    mov cx, 0x2000
+    rep stosw
+
+    ; prompt for kernel path (input ignored but mimics fsboot.s)
+    mov si, prompt_msg
+    call print_string
+    mov di, PATH_BUF
+read_char:
+    call get_key
+    cmp al, 0x0d
+    je done_read
+    mov [di], al
+    inc di
+    call print_char
+    jmp read_char
+done_read:
+    call newline
 
     ; load kernel from disk (KERNEL_SECTORS sectors) to 0x1000
     mov bx, 0x1000
@@ -47,6 +78,41 @@ init_pm:
 disk_error:
     hlt
     jmp disk_error
+
+; BIOS helper routines
+print_char:
+    mov ah, 0x0e
+    mov bh, 0x00
+    mov bl, 0x07
+    int 0x10
+    ret
+
+print_string:
+    lodsb
+    or al, al
+    jz .done_ps
+    push si
+    call print_char
+    pop si
+    jmp print_string
+.done_ps:
+    ret
+
+get_key:
+    mov ah, 0x00
+    int 0x16
+    mov ah, 0
+    ret
+
+newline:
+    mov al, 13
+    call print_char
+    mov al, 10
+    call print_char
+    ret
+
+prompt_msg db 'Kernel path: ',0
+PATH_BUF times 64 db 0
 
 BOOT_DRIVE db 0
 KERNEL_SECTORS equ 4
