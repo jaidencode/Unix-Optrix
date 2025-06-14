@@ -5,12 +5,30 @@
 global boot
 boot:
     cli
+    xor ax, ax
+    mov ds, ax
+    mov es, ax
+    mov si, 0x7c00
+    mov di, 0x0600
+    mov cx, 512/2
+    rep movsw
+    jmp 0x0000:boot_main
+
+boot_main:
     mov [BOOT_DRIVE], dl
     xor ax, ax
     mov ds, ax
     mov es, ax
     mov ss, ax
     mov sp, 0x7c00
+    ; clear low memory excluding this bootloader
+    mov di, 0x0000
+    mov cx, 0x0300
+    xor ax, ax
+    rep stosw
+    mov di, 0x0800
+    mov cx, (0x7c00 - 0x0800) / 2
+    rep stosw
     sti
 
     ; load kernel from disk (KERNEL_SECTORS sectors) to 0x1000
