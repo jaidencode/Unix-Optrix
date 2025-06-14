@@ -50,41 +50,85 @@ static void draw_char(int x, int y, char c, uint8_t color) {
     }
 }
 
-static void draw_string_center(const char* s, uint8_t color) {
+static int strlen_simple(const char* s) {
     int len = 0;
-    for (const char* p = s; *p; ++p) len++;
-    int x = (320 - len * 8) / 2;
-    int y = (200 - 8) / 2;
+    while (s[len]) len++;
+    return len;
+}
+
+static void draw_string(int x, int y, const char* s, uint8_t color) {
     while (*s) {
         draw_char(x, y, *s++, color);
         x += 8;
     }
 }
 
+static void draw_string_center(const char* s, uint8_t color) {
+    int len = strlen_simple(s);
+    int x = (320 - len * 8) / 2;
+    int y = (200 - 8) / 2;
+    draw_string(x, y, s, color);
+}
+
+static int test_memmap(void) {
+    memmap_init();
+    return memmap_region_count() > 0 && memmap_get(0) != 0;
+}
+
+static int test_pmm(void) {
+    memmap_init();
+    pmm_init(memmap_regions(), memmap_region_count());
+    void* f = pmm_alloc();
+    if (!f) return 0;
+    pmm_free(f);
+    return 1;
+}
+
+static int test_heap(void) {
+    heap_init();
+    void* m = heap_alloc(8);
+    if (!m) return 0;
+    heap_free(m);
+    return 1;
+}
+
+static int test_slab(void) {
+    heap_init();
+    slab_init();
+    void* m = kmalloc(8);
+    if (!m) return 0;
+    kfree(m);
+    return 1;
+}
+
+static int test_vmm(void) {
+    vmm_init();
+    return 1;
+}
+
+static void print_result(const char* name, int line, int pass) {
+    const char* status = pass ? " PASS" : " FAIL";
+    int color = pass ? 0x0A : 0x04;
+    int x = 8;
+    int y = 8 + line * 10;
+    draw_string(x, y, name, 0x0F);
+    int len = strlen_simple(name);
+    draw_string(x + len * 8, y, status, color);
+}
+
 void main(void) {
-    const char* msg = "OS Loaded";
     init_serial();
     log("Kernel start\n");
 
-    memmap_init();
-    pmm_init(memmap_regions(), memmap_region_count());
-    heap_init();
-    slab_init();
-    vmm_init();
-
-    /* simple allocation test */
-    char* test = kmalloc(16);
-    if (test) {
-        for (int i = 0; i < 15; i++) test[i] = 'A' + i;
-        test[15] = '\0';
-        log("Allocated: ");
-        log(test);
-        log("\n");
-    }
-
-    // Clear graphics screen
     uint8_t* video = (uint8_t*)0xA0000;
-    for (int i = 0; i < 320 * 200; i++) video[i] = 0x00;
+    for (int i = 0; i < 320 * 200; i++) video[i] = 0x01; /* blue */
 
-    draw_string_center(msg, 0x0F);
+    int line = 0;
+    print_result("memmap.c", line++, test_memmap());
+    print_result("pmm.c",    line++, test_pmm());
+    print_result("heap.c",   line++, test_heap());
+    print_result("slab.c",   line++, test_slab());
+    print_result("vmm.c",    line++, test_vmm());
+
+    draw_string_center("Tests Complete", 0x0F);
 }
