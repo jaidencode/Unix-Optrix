@@ -124,14 +124,8 @@ def collect_source_files(rootdir):
     return asm_files, c_files, h_files
 
 # === BINARY RESOURCE EMBEDDING LOGIC ===
-resource_bin_files = [
-    # (source_path, output_obj_path)
-    ("OptrixOS-Kernel/resources/cursors/oxy-chrome/pointing_hand.cur",
-     "_build_obj/_OptrixOS-Kernel_resources_cursors_oxy_chrome_pointing_hand_cur.o"),
-    # Wallpaper used by the desktop UI
-    ("OptrixOS-Kernel/resources/images/wallpaper.jpg",
-     "_build_obj/_OptrixOS-Kernel_resources_images_wallpaper_jpg.o"),
-]
+# No binary resources for the text mode build
+resource_bin_files = []
 
 def objcopy_binary(input_path, output_obj):
     if not os.path.exists(input_path):
@@ -156,10 +150,7 @@ def build_kernel(asm_files, c_files, out_bin):
     ensure_obj_dir()
     obj_files = []
     boot_bin_path = None
-    # --- Embed resources before compiling kernel ---
-    for bin_path, obj_path in resource_bin_files:
-        objcopy_binary(bin_path, obj_path)
-        obj_files.append(obj_path)
+    # No resources to embed for text mode
     # --- Your original kernel build logic below ---
     for asm in asm_files:
         obj = obj_from_src(asm)
