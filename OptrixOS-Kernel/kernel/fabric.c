@@ -68,9 +68,17 @@ static void draw_title_bar(void) {
 
 // --- Load wallpaper from JPEG on ISO ---
 static void load_wallpaper(void) {
-    extern uint8_t* iso9660_read_file(const char* path, size_t* out_size);
+    extern uint8_t* iso9660_load_file(const char* path, size_t* out_size);
+    extern uint8_t _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start[];
+    extern uint8_t _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end[];
+
     size_t jpg_size = 0;
-    uint8_t* jpg_data = iso9660_read_file("WALLPAPE.JPG", &jpg_size); // Use ISO 9660 file name!
+    uint8_t* jpg_data = iso9660_load_file("WALLPAPE.JPG", &jpg_size); // Use ISO 9660 file name!
+    if (!jpg_data) {
+        jpg_data = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
+        jpg_size = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end -
+                   _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
+    }
 
     int w = 0, h = 0, comp = 0;
     if (jpg_data) {

@@ -80,3 +80,8 @@ void* iso9660_read_file(const char* filename, size_t* filesize) {
     if (filesize) *filesize = 0;
     return NULL;
 }
+
+// Public alias keeping header name in sync
+void* iso9660_load_file(const char* filename, size_t* filesize) {
+    return iso9660_read_file(filename, filesize);
+}
