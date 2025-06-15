@@ -82,6 +82,8 @@ gdt_desc:
     dd gdt_start
 
 print_string:
+    cld
+.next_char:
     lodsb
     test al, al
     jz .done
@@ -89,7 +91,7 @@ print_string:
     mov bh, 0x00
     mov bl, 0x07
     int 0x10
-    jmp print_string
+    jmp .next_char
 .done:
     ret
 
