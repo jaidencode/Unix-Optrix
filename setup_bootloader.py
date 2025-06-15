@@ -127,9 +127,9 @@ resource_bin_files = [
     # (source_path, output_obj_path)
     ("OptrixOS-Kernel/resources/cursors/oxy-chrome/pointing_hand.cur",
      "_build_obj/_OptrixOS-Kernel_resources_cursors_oxy_chrome_pointing_hand_cur.o"),
-    # Add more resources here as needed:
-    # ("OptrixOS-Kernel/resources/images/wallpaper.jpg",
-    #  "_build_obj/_OptrixOS-Kernel_resources_images_wallpaper_jpg.o"),
+    # Wallpaper used by the desktop UI
+    ("OptrixOS-Kernel/resources/images/wallpaper.jpg",
+     "_build_obj/_OptrixOS-Kernel_resources_images_wallpaper_jpg.o"),
 ]
 
 def objcopy_binary(input_path, output_obj):
@@ -231,6 +231,7 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         "-quiet",
         "-o", iso_out,
         "-b", "disk.img",
+        "-R", "-J", "-l",
         tmp_iso_dir
     ]
     run(cmd)
