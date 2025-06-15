@@ -42,46 +42,77 @@ static int iso_namecmp(const char* a, const char* b) {
     return (*a) - (*b);
 }
 
-void* iso9660_read_file(const char* filename, size_t* filesize) {
-    uint8_t* pvd = ISO_BASE + 0x8000; // sector 16
-    if (pvd[0] != 1 || memcmp(pvd+1, "CD001", 5) != 0) return NULL;
-
-    // Root dir entry is at byte 156 in the PVD
-    iso_dir_record_t* rootrec = (iso_dir_record_t*)(pvd + 156);
-    uint32_t root_start = le32(&rootrec->extent_start_little);
-    uint32_t root_size  = le32(&rootrec->data_length_little);
-
-    uint8_t* root_dir = ISO_BASE + root_start * SECTOR_SIZE;
-    size_t   offset = 0;
-
-    while (offset < root_size) {
-        iso_dir_record_t* rec = (iso_dir_record_t*)(root_dir + offset);
+static iso_dir_record_t* find_entry(uint8_t* dir, uint32_t dir_size,
+                                   const char* name) {
+    size_t offset = 0;
+    while (offset < dir_size) {
+        iso_dir_record_t* rec = (iso_dir_record_t*)(dir + offset);
         if (rec->length == 0) break;
         if (rec->file_id_length > 0) {
-            // Copy and null-terminate the filename
             char namebuf[130] = {0};
             size_t namelen = rec->file_id_length;
             if (namelen > sizeof(namebuf)-1) namelen = sizeof(namebuf)-1;
             memcpy(namebuf, rec->file_id, namelen);
             namebuf[namelen] = 0;
-
-            // Only files, not directories (ignore . and ..)
-            if (!(rec->file_flags & 0x02) && namebuf[0] != 0) {
-                if (iso_namecmp(namebuf, filename) == 0) {
-                    uint32_t file_start = le32(&rec->extent_start_little);
-                    uint32_t file_size  = le32(&rec->data_length_little);
-                    if (filesize) *filesize = file_size;
-                    return (void*)(ISO_BASE + file_start * SECTOR_SIZE);
-                }
-            }
+            if (namebuf[0] != 0 && iso_namecmp(namebuf, name) == 0)
+                return rec;
         }
         offset += rec->length;
+    }
+    return NULL;
+}
+
+void* iso9660_read_file(const char* path, size_t* filesize) {
+    uint8_t* pvd = ISO_BASE + 0x8000; // sector 16
+    if (pvd[0] != 1 || memcmp(pvd+1, "CD001", 5) != 0) return NULL;
+
+    iso_dir_record_t* rootrec = (iso_dir_record_t*)(pvd + 156);
+    uint32_t cur_start = le32(&rootrec->extent_start_little);
+    uint32_t cur_size  = le32(&rootrec->data_length_little);
+
+    const char* p = path;
+    while (*p == '/') ++p; // skip leading
+
+    char component[130];
+    while (*p) {
+        const char* slash = strchr(p, '/');
+        size_t len = slash ? (size_t)(slash - p) : strlen(p);
+        if (len >= sizeof(component)) len = sizeof(component)-1;
+        memcpy(component, p, len);
+        component[len] = 0;
+
+        uint8_t* dir = ISO_BASE + cur_start * SECTOR_SIZE;
+        iso_dir_record_t* rec = find_entry(dir, cur_size, component);
+        if (!rec) {
+            if (filesize) *filesize = 0;
+            return NULL;
+        }
+
+        uint32_t start = le32(&rec->extent_start_little);
+        uint32_t size  = le32(&rec->data_length_little);
+
+        if (slash) { // expect directory
+            if (!(rec->file_flags & 0x02)) {
+                if (filesize) *filesize = 0;
+                return NULL;
+            }
+            cur_start = start;
+            cur_size = size;
+            p = slash + 1;
+            while (*p == '/') ++p;
+        } else {
+            if (rec->file_flags & 0x02) {
+                if (filesize) *filesize = 0;
+                return NULL;
+            }
+            if (filesize) *filesize = size;
+            return (void*)(ISO_BASE + start * SECTOR_SIZE);
+        }
     }
     if (filesize) *filesize = 0;
     return NULL;
 }
 
-// Public alias keeping header name in sync
-void* iso9660_load_file(const char* filename, size_t* filesize) {
-    return iso9660_read_file(filename, filesize);
+void* iso9660_load_file(const char* path, size_t* filesize) {
+    return iso9660_read_file(path, filesize);
 }

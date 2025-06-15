@@ -22,11 +22,12 @@ script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
 but if it is not installed the script will fall back to the system `gcc` and
 `ld` with `-m32`.
 
-During the build the desktop wallpaper from
-`OptrixOS-Kernel/resources/images/wallpaper.jpg` is automatically copied to the
-ISO root as `WALLPAPE.JPG`. The kernel looks for this 8.3 filename when loading
-the wallpaper at runtime, so ensure it remains in the ISO root if you modify the
-build process.
+During the build the entire kernel tree is copied to the ISO. The wallpaper file
+(`OptrixOS-Kernel/resources/images/wallpaper.jpg`) now remains in its original
+folder on the image rather than being duplicated in the ISO root. The kernel
+loads it using the path
+`OptrixOS-Kernel/resources/images/WALLPAPE.JPG`, so keep this location intact if
+you modify the build process.
 
 On Ubuntu these tools can be installed with:
 
