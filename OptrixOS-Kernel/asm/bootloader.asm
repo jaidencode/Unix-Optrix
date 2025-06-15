@@ -2,17 +2,25 @@
 [bits 16]
 KERNEL_LOAD_ADDR equ 0x1000      ; 4KB
 KERNEL_SECTORS   equ 64          ; adjust for your kernel size
-SECTORS_PER_TRACK equ 18
-HEADS_PER_CYLINDER equ 2
+
+; Disk Address Packet for BIOS INT 13h extensions (LBA reads)
+dap:
+    db 0x10            ; size of packet
+    db 0               ; reserved
+    dw 1               ; sectors to read (always 1 per loop)
+dap_offset: dw 0       ; offset of buffer (filled in at runtime)
+dap_segment: dw 0      ; segment of buffer (0x0000)
+dap_lba:     dd 1      ; starting LBA (kernel starts at sector 1)
+dap_lba_hi:  dd 0
 
 boot:
     mov [BOOT_DRIVE], dl
-    mov si, msg_boot
-    call print_string
-    cli
     xor ax, ax
     mov ds, ax
     mov es, ax
+    mov si, msg_boot
+    call print_string
+    cli
     mov ss, ax
     mov sp, 0x7c00
 
@@ -26,27 +34,18 @@ boot:
     mov si, msg_load
     call print_string
     mov bx, KERNEL_LOAD_ADDR    ; destination address
-    mov di, KERNEL_SECTORS      ; sectors remaining
-    mov ch, 0                   ; cylinder
-    mov dh, 0                   ; head
-    mov cl, 2                   ; sector (start after boot)
+    mov cx, KERNEL_SECTORS      ; sectors remaining
+    mov dword [dap_lba], 1      ; first LBA after boot sector
 load_loop:
+    mov [dap_offset], bx        ; update buffer pointer
     mov dl, [BOOT_DRIVE]
-    mov ax, 0x0201              ; read one sector
+    mov si, dap
+    mov ah, 0x42                ; BIOS extended read
     int 0x13
     jc disk_error
     add bx, 512                 ; advance buffer
-    inc cl
-    cmp cl, SECTORS_PER_TRACK+1
-    jl .no_wrap
-    mov cl, 1
-    inc dh
-    cmp dh, HEADS_PER_CYLINDER
-    jl .no_wrap
-    mov dh, 0
-    inc ch
-.no_wrap:
-    dec di
+    inc dword [dap_lba]
+    dec cx
     jnz load_loop
     mov si, msg_done
     call print_string
