@@ -219,6 +219,13 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
         shutil.copy(KERNEL_BIN, os.path.join(tmp_iso_dir, KERNEL_BIN))
     if os.path.exists("disk.img"):
         shutil.copy("disk.img", os.path.join(tmp_iso_dir, "disk.img"))
+    # Explicitly copy wallpaper to ISO root using 8.3 name expected by the
+    # loader. This avoids path lookup issues when the kernel tries to load the
+    # image via iso9660_load_file().
+    wp_src = os.path.join(
+        "OptrixOS-Kernel", "resources", "images", "wallpaper.jpg")
+    if os.path.exists(wp_src):
+        shutil.copy(wp_src, os.path.join(tmp_iso_dir, "WALLPAPE.JPG"))
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
     print(f"Creating ISO using: {MKISOFS_EXE}")
