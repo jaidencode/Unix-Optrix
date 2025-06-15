@@ -24,18 +24,10 @@ boot:
     mov sp, 0x7c00
 
     ; =========================
-    ; Set VESA graphics mode: 1024x768x32bpp linear framebuffer
-    ; AX=0x4F02 (VBE Set SuperVGA Video Mode)
-    ; BX=0x4118: bit 14=linear framebuffer, mode 0x118 (see OSDev VBE)
+    ; Set text mode 80x25 color
+    ; AX=0x0003 BIOS video mode
     ; =========================
-    mov ax, 0x4F02
-    mov bx, 0x4118       ; 1024x768x32bpp linear framebuffer
-    int 0x10
-
-    ; Query mode information to obtain framebuffer physical address
-    mov ax, 0x4F01
-    mov cx, 0x118
-    mov di, 0x9000       ; store VBE mode info structure at 0x9000
+    mov ax, 0x0003
     int 0x10
 
     ; Load kernel
