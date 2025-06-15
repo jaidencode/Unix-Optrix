@@ -1,6 +1,7 @@
 #include "terminal.h"
 #include <stddef.h>
 #include <stdint.h>
+#include "graphics.h"
 
 #define VGA_WIDTH 80
 #define VGA_HEIGHT 25
@@ -9,23 +10,36 @@
 static size_t term_row = 0;
 static size_t term_col = 0;
 static uint8_t term_color = 0x07;
+static int use_graphics = 0;
 
 static inline uint16_t vga_entry(char c, uint8_t color) {
     return (uint16_t)color << 8 | (uint8_t)c;
 }
 
+void terminal_use_graphics(int on) {
+    use_graphics = on;
+}
+
 void terminal_initialize(void) {
     term_row = 0;
     term_col = 0;
-    for (size_t y = 0; y < VGA_HEIGHT; y++)
-        for (size_t x = 0; x < VGA_WIDTH; x++)
-            VGA_MEMORY[y * VGA_WIDTH + x] = vga_entry(' ', term_color);
+    if (use_graphics) {
+        graphics_clear(0);
+    } else {
+        for (size_t y = 0; y < VGA_HEIGHT; y++)
+            for (size_t x = 0; x < VGA_WIDTH; x++)
+                VGA_MEMORY[y * VGA_WIDTH + x] = vga_entry(' ', term_color);
+    }
 }
 
 void terminal_clear(void) {
-    for (size_t y = 0; y < VGA_HEIGHT; y++)
-        for (size_t x = 0; x < VGA_WIDTH; x++)
-            VGA_MEMORY[y * VGA_WIDTH + x] = vga_entry(' ', term_color);
+    if (use_graphics) {
+        graphics_clear(0);
+    } else {
+        for (size_t y = 0; y < VGA_HEIGHT; y++)
+            for (size_t x = 0; x < VGA_WIDTH; x++)
+                VGA_MEMORY[y * VGA_WIDTH + x] = vga_entry(' ', term_color);
+    }
     term_row = 0;
     term_col = 0;
 }
@@ -38,7 +52,11 @@ static void newline(void) {
 }
 
 static void putchar_at(char c, size_t col, size_t row) {
-    VGA_MEMORY[row * VGA_WIDTH + col] = vga_entry(c, term_color);
+    if (use_graphics) {
+        graphics_draw_char(col * 8, row * 8, c, term_color);
+    } else {
+        VGA_MEMORY[row * VGA_WIDTH + col] = vga_entry(c, term_color);
+    }
 }
 
 void terminal_write(const char* s) {

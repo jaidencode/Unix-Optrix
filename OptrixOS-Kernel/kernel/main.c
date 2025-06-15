@@ -4,9 +4,12 @@
 #include "shell.h"
 #include "keyboard.h"
 #include "terminal.h"
+#include "graphics.h"
 
 void kernel_main(void) {
     serial_init();
+    terminal_use_graphics(1);
+    graphics_init();
     terminal_initialize();
     debug_clear(0);
     debug_log("[ OK ] Serial initialized");
