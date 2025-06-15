@@ -1,6 +1,7 @@
 #include "wallpaper.h"
 #include "iso9660.h"
 #include "pmm.h"
+#include "debug.h"
 
 #include <stddef.h>
 #include <stdint.h>
@@ -18,9 +19,11 @@ void* kernel_realloc(void* ptr, size_t size) { (void)ptr; (void)size; return NUL
 #include "stb_image.h"
 
 uint32_t* load_wallpaper_from_iso(const char* path, int* width, int* height) {
+    debug_log("load_wallpaper_from_iso: open file");
     size_t filesize = 0;
     uint8_t* file_data = (uint8_t*)iso9660_load_file(path, &filesize);
     if (!file_data || filesize == 0) {
+        debug_log("wallpaper not found");
         if (width) *width = 0;
         if (height) *height = 0;
         return NULL;
@@ -28,12 +31,14 @@ uint32_t* load_wallpaper_from_iso(const char* path, int* width, int* height) {
     int w = 0, h = 0, comp = 0;
     unsigned char* pixels = stbi_load_from_memory(file_data, filesize, &w, &h, &comp, 4);
     if (!pixels) {
+        debug_log("wallpaper decode failed");
         if (width) *width = 0;
         if (height) *height = 0;
         return NULL;
     }
     if (width) *width = w;
     if (height) *height = h;
+    debug_log("wallpaper loaded");
     return (uint32_t*)pixels;
 }
 
