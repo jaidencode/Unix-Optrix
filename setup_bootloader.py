@@ -30,7 +30,8 @@ MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs.e
 if not os.path.isfile(MKISOFS_EXE):
     MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
 
-KERNEL_PROJECT_ROOT = "."
+# Only build sources inside the kernel directory
+KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
@@ -208,22 +209,22 @@ def ignore_git(dir, files):
     return [f for f in files if f == ".git" or f.startswith('.')]
 
 def copy_tree_to_iso(tmp_iso_dir, proj_root):
+    """Create the ISO file tree with only the kernel folder and disk image."""
     print("Copying project files to ISO structure...")
     if os.path.exists(tmp_iso_dir):
         shutil.rmtree(tmp_iso_dir, onerror=on_rm_error)
     os.makedirs(tmp_iso_dir, exist_ok=True)
-    shutil.copytree(proj_root, os.path.join(tmp_iso_dir, os.path.basename(proj_root)),
-                    ignore=ignore_git, dirs_exist_ok=True)
-    # Place kernel image and disk.img at root
-    if os.path.exists(KERNEL_BIN):
-        shutil.copy(KERNEL_BIN, os.path.join(tmp_iso_dir, KERNEL_BIN))
-    if os.path.exists("disk.img"):
-        shutil.copy("disk.img", os.path.join(tmp_iso_dir, "disk.img"))
-    # Explicitly copy wallpaper to ISO root using 8.3 name expected by the
-    # loader. This avoids path lookup issues when the kernel tries to load the
-    # image via iso9660_load_file().
-    wp_src = os.path.join(
-        "OptrixOS-Kernel", "resources", "images", "wallpaper.jpg")
+
+    # Copy the entire kernel folder
+    kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
+    shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
+
+    # Place disk image at ISO root
+    if os.path.exists(DISK_IMG):
+        shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
+
+    # Keep wallpaper accessible via the short filename expected by the kernel
+    wp_src = os.path.join(proj_root, "resources", "images", "wallpaper.jpg")
     if os.path.exists(wp_src):
         shutil.copy(wp_src, os.path.join(tmp_iso_dir, "WALLPAPE.JPG"))
 
