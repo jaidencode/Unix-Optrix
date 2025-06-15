@@ -32,6 +32,12 @@ boot:
     mov bx, 0x4118       ; 1024x768x32bpp linear framebuffer
     int 0x10
 
+    ; Query mode information to obtain framebuffer physical address
+    mov ax, 0x4F01
+    mov cx, 0x118
+    mov di, 0x9000       ; store VBE mode info structure at 0x9000
+    int 0x10
+
     ; Load kernel
     mov bx, KERNEL_LOAD_ADDR
     mov dh, 0

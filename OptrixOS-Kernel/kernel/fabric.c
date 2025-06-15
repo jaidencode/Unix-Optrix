@@ -2,11 +2,11 @@
 #include <stddef.h>
 #include "cursor.h"
 #include "wallpaper.h"
+#include "video.h"
+#include "fabric_defs.h"
 
 // --- UI CONSTANTS ---
-#define WIDTH   1024
-#define HEIGHT  768
-#define FB_ADDR ((uint32_t*)0xE0000000) // Set to your real framebuffer address
+#define FB_ADDR framebuffer
 
 // Mouse globals -- ONLY declare here, define in mouse.c!
 extern volatile int mouse_x, mouse_y;
