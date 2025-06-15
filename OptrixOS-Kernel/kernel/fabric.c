@@ -1,22 +1,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "cursor.h"
-
-// --- KERNEL MEMORY STUBS FOR stb_image ---
-void* kernel_malloc(size_t size) {
-    extern void* pmm_alloc(void);  // Plug in your real allocator
-    return pmm_alloc();
-}
-void kernel_free(void* ptr) { /* TODO: implement free if needed */ }
-void* kernel_realloc(void* ptr, size_t size) { return NULL; }
-
-#define STBI_MALLOC(sz)      kernel_malloc(sz)
-#define STBI_REALLOC(p,sz)   kernel_realloc(p,sz)
-#define STBI_FREE(p)         kernel_free(p)
-#define STBI_NO_STDIO
-#define STBI_NO_LIMITS
-#define STB_IMAGE_IMPLEMENTATION
-#include "stb_image.h"
+#include "wallpaper.h"
 
 // --- UI CONSTANTS ---
 #define WIDTH   1024
@@ -67,33 +52,37 @@ static void draw_title_bar(void) {
             FB_ADDR[(y0 + y) * WIDTH + (x0 + x)] = 0xFF2222CC;
 }
 
+// --- Simple text rendering on 32bpp framebuffer ---
+static void fb_draw_char(int x, int y, char c, uint32_t color) {
+    for (int row = 0; row < 8; ++row)
+        for (int col = 0; col < 8; ++col)
+            FB_ADDR[(y + row) * WIDTH + (x + col)] =
+                (c == ' ' ? color : color);
+}
+
+static void fb_draw_text(int x, int y, const char* s, uint32_t color) {
+    for (int i = 0; s[i]; ++i)
+        fb_draw_char(x + i * 8, y, s[i], color);
+}
+
 // --- Load wallpaper from JPEG on ISO ---
+static int desktop_found = 0;
+
 static void load_wallpaper(void) {
-    extern uint8_t _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start[];
-    extern uint8_t _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end[];
-
-    // Always use the embedded wallpaper to avoid ISO lookup issues
-    size_t jpg_size = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end -
-                      _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
-    uint8_t* jpg_data = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
-
-    int w = 0, h = 0, comp = 0;
-    if (jpg_data) {
-        unsigned char* pixels = stbi_load_from_memory(jpg_data, jpg_size, &w, &h, &comp, 4);
-        if (pixels && w == WIDTH && h == HEIGHT) {
-            for (int i = 0; i < WIDTH * HEIGHT; ++i)
-                wallpaper[i] = ((uint32_t*)pixels)[i];
-        } else {
-            for (int i = 0; i < WIDTH * HEIGHT; ++i)
-                wallpaper[i] = 0xFF2266CC;
-        }
-        if (pixels)
-            stbi_image_free(pixels);
-        // free(jpg_data); // Only if malloc'd!
+    int w = 0, h = 0;
+    uint32_t* pixels = load_wallpaper_from_iso(
+        "OptrixOS-Kernel/resources/images/wallpaper.jpg", &w, &h);
+    if (pixels && w == WIDTH && h == HEIGHT) {
+        for (int i = 0; i < WIDTH * HEIGHT; ++i)
+            wallpaper[i] = pixels[i];
+        desktop_found = 1;
     } else {
         for (int i = 0; i < WIDTH * HEIGHT; ++i)
             wallpaper[i] = 0xFF2266CC;
+        desktop_found = 0;
     }
+    if (pixels)
+        free_wallpaper(pixels);
 }
 
 // --- Fabric main UI loop ---
@@ -120,9 +109,10 @@ void fabric_main(void) {
     }
 
     while (1) {
-        draw_wallpaper();         
+        draw_wallpaper();
         draw_window();
         draw_title_bar();
+        fb_draw_text(0, 0, desktop_found ? "Desktop Found: True" : "Desktop Found: False", 0xFFFFFFFF);
         // ...other UI...
 
         if (mouse_driver_loaded && system_cursor)
