@@ -3,10 +3,12 @@
 #include "pmm.h"
 #include "shell.h"
 #include "keyboard.h"
+#include "terminal.h"
 
 void kernel_main(void) {
     serial_init();
     keyboard_init();
+    terminal_initialize();
     debug_clear(0);
     debug_log("Kernel start");
     pmm_init();

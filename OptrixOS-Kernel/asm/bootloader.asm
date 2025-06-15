@@ -24,10 +24,10 @@ boot:
     mov sp, 0x7c00
 
     ; =========================
-    ; Set text mode 80x25 color
-    ; AX=0x0003 BIOS video mode
+    ; Set graphics mode 320x200x256
+    ; AX=0x0013 BIOS video mode
     ; =========================
-    mov ax, 0x0003
+    mov ax, 0x0013
     int 0x10
 
     ; Load kernel
