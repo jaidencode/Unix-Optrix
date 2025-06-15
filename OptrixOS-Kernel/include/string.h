@@ -39,4 +39,13 @@ static inline char *strcpy(char *dst, const char *src) {
     return ret;
 }
 
+// Find first occurrence of character c in s, or return NULL
+static inline char *strchr(const char *s, int c) {
+    while (*s) {
+        if (*s == (char)c) return (char*)s;
+        ++s;
+    }
+    return NULL;
+}
+
 #endif // _STRING_H_
