@@ -11,10 +11,10 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Loads the kernel from the disk image into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
-- Sets VGA mode 13h so the kernel can render graphics.
+- Bootloader prints progress messages while loading the kernel.
 
-Once the kernel takes over it clears the graphics screen and displays
-"OS Loaded" centred using a tiny built-in font.
+Once the kernel takes over it runs entirely in VGA text mode and
+initialises a very small shell interface.
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
 script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
@@ -22,12 +22,7 @@ script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
 but if it is not installed the script will fall back to the system `gcc` and
 `ld` with `-m32`.
 
-During the build the entire kernel tree is copied to the ISO. The wallpaper file
-(`OptrixOS-Kernel/resources/images/wallpaper.jpg`) now remains in its original
-folder on the image rather than being duplicated in the ISO root. The kernel
-loads it using the path
-`OptrixOS-Kernel/resources/images/WALLPAPE.JPG`, so keep this location intact if
-you modify the build process.
+
 
 On Ubuntu these tools can be installed with:
 

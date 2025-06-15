@@ -6,16 +6,7 @@ KERNEL_SECTORS   equ 64          ; adjust for your kernel size
 boot:
     mov [BOOT_DRIVE], dl
     mov si, msg_boot
-.print:
-    lodsb
-    test al, al
-    jz .print_done
-    mov ah, 0x0E
-    mov bh, 0x00
-    mov bl, 0x07
-    int 0x10
-    jmp .print
-.print_done:
+    call print_string
     cli
     xor ax, ax
     mov ds, ax
@@ -23,14 +14,11 @@ boot:
     mov ss, ax
     mov sp, 0x7c00
 
-    ; =========================
-    ; Set graphics mode 320x200x256
-    ; AX=0x0013 BIOS video mode
-    ; =========================
-    mov ax, 0x0013
-    int 0x10
+
 
     ; Load kernel
+    mov si, msg_load
+    call print_string
     mov bx, KERNEL_LOAD_ADDR
     mov dh, 0
     mov dl, [BOOT_DRIVE]
@@ -40,6 +28,8 @@ boot:
     mov cl, 2                   ; Start at sector 2
     int 0x13
     jc disk_error
+    mov si, msg_done
+    call print_string
 
     ; Set up GDT in 16-bit mode
     lgdt [gdt_desc]
@@ -57,7 +47,9 @@ disk_error:
     jmp disk_error
 
 BOOT_DRIVE: db 0
-msg_boot db 'OptrixOS Bootloader: Loading kernel...',0
+msg_boot db 'OptrixOS Bootloader: Starting...',0
+msg_load db 'Loading kernel...',0
+msg_done db 'Kernel loaded',0
 
 align 4
 gdt_start:
@@ -68,6 +60,18 @@ gdt_end:
 gdt_desc:
     dw gdt_end - gdt_start - 1
     dd gdt_start
+
+print_string:
+    lodsb
+    test al, al
+    jz .done
+    mov ah, 0x0E
+    mov bh, 0x00
+    mov bl, 0x07
+    int 0x10
+    jmp print_string
+.done:
+    ret
 
 [bits 32]
 protected_mode:
