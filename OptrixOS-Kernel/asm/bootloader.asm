@@ -14,6 +14,10 @@ boot:
     mov ss, ax
     mov sp, 0x7c00
 
+    ; Set graphics mode 320x200x256
+    mov ax, 0x0013
+    int 0x10
+
 
 
     ; Load kernel
