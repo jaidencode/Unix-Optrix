@@ -1,39 +1,38 @@
 #include "terminal.h"
+#include "graphics.h"
 #include <stddef.h>
 
-#define VGA_TEXT_MODE  ((volatile unsigned short*)0xB8000)
-static size_t term_row = 0;
-static size_t term_col = 0;
-static const unsigned short term_color = 0x0F00; // black bg, white fg
+#define TERM_COLS 40
+#define TERM_ROWS 25
+#define CHAR_W 8
+#define CHAR_H 8
+
+static size_t term_row = 1;
+static size_t term_col = 1;
 
 void terminal_initialize(void) {
-    term_row = 0;
-    term_col = 0;
-    terminal_clear();
+    graphics_init();
+    graphics_clear(0);
+    graphics_draw_rect(0,0,SCREEN_WIDTH-1,SCREEN_HEIGHT-1,15);
+    term_row = 1;
+    term_col = 1;
 }
 
 void terminal_clear(void) {
-    for (size_t y = 0; y < 25; ++y) {
-        for (size_t x = 0; x < 80; ++x) {
-            VGA_TEXT_MODE[y * 80 + x] = term_color | ' ';
-        }
-    }
-}
-
-static void putchar_at(char c, size_t x, size_t y) {
-    VGA_TEXT_MODE[y * 80 + x] = term_color | (unsigned short)c;
+    graphics_draw_rect(1,1,SCREEN_WIDTH-2,SCREEN_HEIGHT-2,0);
+    term_row = 1;
+    term_col = 1;
 }
 
 static void newline(void) {
-    term_col = 0;
-    if (++term_row >= 25) {
-        term_row = 24;
-        for (size_t y = 1; y < 25; ++y)
-            for (size_t x = 0; x < 80; ++x)
-                VGA_TEXT_MODE[(y-1)*80 + x] = VGA_TEXT_MODE[y*80 + x];
-        for (size_t x = 0; x < 80; ++x)
-            VGA_TEXT_MODE[24*80 + x] = term_color | ' ';
+    term_col = 1;
+    if (++term_row >= TERM_ROWS-1) {
+        terminal_clear();
     }
+}
+
+static void putchar_at(char c, size_t col, size_t row) {
+    graphics_draw_char(col*CHAR_W, row*CHAR_H, c, 10);
 }
 
 void terminal_write(const char* s) {
@@ -43,9 +42,8 @@ void terminal_write(const char* s) {
             newline();
         } else {
             putchar_at(c, term_col, term_row);
-            if (++term_col >= 80) {
+            if (++term_col >= TERM_COLS-1)
                 newline();
-            }
         }
     }
 }

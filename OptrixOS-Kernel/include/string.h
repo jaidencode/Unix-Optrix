@@ -32,6 +32,12 @@ static inline int strcmp(const char *a, const char *b) {
     return *(const unsigned char*)a - *(const unsigned char*)b;
 }
 
+static inline int strncmp(const char *a, const char *b, size_t n) {
+    while (n && *a && (*a == *b)) { ++a; ++b; --n; }
+    if (n == 0) return 0;
+    return *(const unsigned char*)a - *(const unsigned char*)b;
+}
+
 // Copy string
 static inline char *strcpy(char *dst, const char *src) {
     char *ret = dst;
