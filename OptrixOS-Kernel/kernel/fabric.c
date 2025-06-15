@@ -14,6 +14,7 @@ void* kernel_realloc(void* ptr, size_t size) { return NULL; }
 #define STBI_REALLOC(p,sz)   kernel_realloc(p,sz)
 #define STBI_FREE(p)         kernel_free(p)
 #define STBI_NO_STDIO
+#define STBI_NO_LIMITS
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
@@ -68,18 +69,13 @@ static void draw_title_bar(void) {
 
 // --- Load wallpaper from JPEG on ISO ---
 static void load_wallpaper(void) {
-    extern uint8_t* iso9660_load_file(const char* path, size_t* out_size);
     extern uint8_t _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start[];
     extern uint8_t _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end[];
 
-    size_t jpg_size = 0;
-    uint8_t* jpg_data = iso9660_load_file(
-        "OptrixOS-Kernel/resources/images/WALLPAPE.JPG", &jpg_size);
-    if (!jpg_data) {
-        jpg_data = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
-        jpg_size = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end -
-                   _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
-    }
+    // Always use the embedded wallpaper to avoid ISO lookup issues
+    size_t jpg_size = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end -
+                      _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
+    uint8_t* jpg_data = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
 
     int w = 0, h = 0, comp = 0;
     if (jpg_data) {

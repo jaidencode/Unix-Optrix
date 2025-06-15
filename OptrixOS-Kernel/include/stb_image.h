@@ -588,7 +588,25 @@ STBIDEF int   stbi_zlib_decode_noheader_buffer(char *obuffer, int olen, const ch
 #include <stddef.h> // ptrdiff_t on osx
 #include <stdlib.h>
 #include <string.h>
+#ifndef STBI_NO_LIMITS
 #include <limits.h>
+#else
+#ifndef INT_MAX
+#define INT_MAX 2147483647
+#endif
+#ifndef INT_MIN
+#define INT_MIN (-2147483647-1)
+#endif
+#ifndef UINT_MAX
+#define UINT_MAX 4294967295U
+#endif
+#ifndef SHRT_MAX
+#define SHRT_MAX 32767
+#endif
+#ifndef SHRT_MIN
+#define SHRT_MIN (-32768)
+#endif
+#endif
 
 #if !defined(STBI_NO_LINEAR) || !defined(STBI_NO_HDR)
 #include <math.h>  // ldexp, pow
