@@ -2,6 +2,8 @@
 [bits 16]
 KERNEL_LOAD_ADDR equ 0x1000      ; 4KB
 KERNEL_SECTORS   equ 64          ; adjust for your kernel size
+SECTORS_PER_TRACK equ 18
+HEADS_PER_CYLINDER equ 2
 
 boot:
     mov [BOOT_DRIVE], dl
@@ -23,15 +25,29 @@ boot:
     ; Load kernel
     mov si, msg_load
     call print_string
-    mov bx, KERNEL_LOAD_ADDR
-    mov dh, 0
+    mov bx, KERNEL_LOAD_ADDR    ; destination address
+    mov di, KERNEL_SECTORS      ; sectors remaining
+    mov ch, 0                   ; cylinder
+    mov dh, 0                   ; head
+    mov cl, 2                   ; sector (start after boot)
+load_loop:
     mov dl, [BOOT_DRIVE]
-    mov ah, 0x02                ; BIOS read sectors
-    mov al, KERNEL_SECTORS
-    mov ch, 0
-    mov cl, 2                   ; Start at sector 2
+    mov ax, 0x0201              ; read one sector
     int 0x13
     jc disk_error
+    add bx, 512                 ; advance buffer
+    inc cl
+    cmp cl, SECTORS_PER_TRACK+1
+    jl .no_wrap
+    mov cl, 1
+    inc dh
+    cmp dh, HEADS_PER_CYLINDER
+    jl .no_wrap
+    mov dh, 0
+    inc ch
+.no_wrap:
+    dec di
+    jnz load_loop
     mov si, msg_done
     call print_string
 
