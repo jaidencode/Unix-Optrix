@@ -73,7 +73,8 @@ static void load_wallpaper(void) {
     extern uint8_t _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end[];
 
     size_t jpg_size = 0;
-    uint8_t* jpg_data = iso9660_load_file("WALLPAPE.JPG", &jpg_size); // Use ISO 9660 file name!
+    uint8_t* jpg_data = iso9660_load_file(
+        "OptrixOS-Kernel/resources/images/WALLPAPE.JPG", &jpg_size);
     if (!jpg_data) {
         jpg_data = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_start;
         jpg_size = _binary_OptrixOS_Kernel_resources_images_wallpaper_jpg_end -

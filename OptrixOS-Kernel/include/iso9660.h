@@ -6,12 +6,14 @@
 
 /**
  * iso9660_load_file
- * Searchs for a file by name in the ISO9660 root directory (uppercase, no path).
- * 
- * @param filename    The filename to search for (e.g., "POINTING_HAND.CUR").
- * @param filesize    Output: length of file if found, else 0.
- * @return            Pointer to file data in memory if found, NULL if not.
+ * Load a file from the ISO9660 image. The path may include directories
+ * (e.g. "DIR/FILE.TXT"). Names are compared case-insensitively and may use the
+ * typical 8.3 format.
+ *
+ * @param path     Path of the file to load, using '/' as separator.
+ * @param filesize Output: length of file if found, else 0.
+ * @return         Pointer to file data in memory if found, NULL if not.
  */
-void* iso9660_load_file(const char* filename, size_t* filesize);
+void* iso9660_load_file(const char* path, size_t* filesize);
 
 #endif // ISO9660_H

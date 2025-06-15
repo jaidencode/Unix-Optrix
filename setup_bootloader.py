@@ -223,10 +223,6 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     if os.path.exists(DISK_IMG):
         shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
 
-    # Keep wallpaper accessible via the short filename expected by the kernel
-    wp_src = os.path.join(proj_root, "resources", "images", "wallpaper.jpg")
-    if os.path.exists(wp_src):
-        shutil.copy(wp_src, os.path.join(tmp_iso_dir, "WALLPAPE.JPG"))
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
     print(f"Creating ISO using: {MKISOFS_EXE}")
@@ -234,6 +230,8 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
     if not os.path.isfile(MKISOFS_EXE):
         print(f"Error: mkisofs.exe not found at {MKISOFS_EXE}!")
         sys.exit(1)
+    if os.path.exists(iso_out):
+        os.remove(iso_out)
     cmd = [
         MKISOFS_EXE,
         "-quiet",
@@ -247,6 +245,8 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
     script_dir = os.path.dirname(os.path.abspath(__file__))
     dest_iso = os.path.join(script_dir, "OptrixOS.iso")
     if os.path.abspath(iso_out) != dest_iso:
+        if os.path.exists(dest_iso):
+            os.remove(dest_iso)
         shutil.copyfile(iso_out, dest_iso)
         print(f"ISO forcibly copied to: {dest_iso}")
     print(f"ISO created: {dest_iso}")
