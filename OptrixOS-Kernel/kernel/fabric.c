@@ -87,6 +87,7 @@ static void load_wallpaper(void) {
 
 // --- Fabric main UI loop ---
 void fabric_main(void) {
+    debug_log("fabric_main start");
     if (!mouse_driver_loaded) {
         mouse_init();
         mouse_driver_loaded = 1;
@@ -94,6 +95,7 @@ void fabric_main(void) {
 
     // 1. Load wallpaper image ONCE
     load_wallpaper();
+    debug_log(desktop_found ? "wallpaper loaded" : "wallpaper missing");
 
     // 2. Load cursor file ONCE at startup (edit symbol name for your path!)
     if (!system_cursor) {
@@ -108,6 +110,7 @@ void fabric_main(void) {
         // fallback: make your own cursor if needed
     }
 
+    debug_log("fabric_main entering loop");
     while (1) {
         draw_wallpaper();
         draw_window();
