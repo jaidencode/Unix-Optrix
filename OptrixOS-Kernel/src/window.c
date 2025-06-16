@@ -2,6 +2,7 @@
 #include "graphics.h"
 #include "screen.h"
 #include "mouse.h"
+#include "taskbar.h"
 
 static int drag = 0;
 static int resize = 0;
@@ -18,6 +19,15 @@ void window_init(window_t *win, int x, int y, int w, int h,
     win->color = color;
     win->bg_color = bg_color;
     win->title = title;
+}
+
+void window_close(window_t *win) {
+    if(!win || !win->visible) return;
+    draw_rect(win->x, win->y, win->w, win->h, win->bg_color);
+    win->visible = 0;
+    win->closed = 1;
+    win->px = win->py = -1;
+    taskbar_unregister(win);
 }
 
 static void draw_buttons(int x, int y) {
@@ -41,7 +51,7 @@ void window_draw(window_t* win) {
         return;
     }
 
-    int show_bar = (win->state != 1 || mouse_get_y() <= 2);
+    int show_bar = 1;
     /* shadow */
     draw_rounded_rect(x+2, y+2, w, h, 6, win->bg_color);
     /* window body */
@@ -65,14 +75,11 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
 
     int x = win->x; int y = win->y; int w = win->w; int h = win->h;
     if(win->state == 1) { x = 0; y = 0; w = SCREEN_WIDTH; h = SCREEN_HEIGHT; }
-    int show_bar = (win->state != 1 || mouse_get_y() <= 2);
+    int show_bar = 1;
 
     if(click && !drag && !resize) {
         if(show_bar && my >= y && my < y+14 && mx >= x+w-36 && mx < x+w-26) {
-            draw_rect(win->x, win->y, win->w, win->h, win->bg_color);
-            win->visible = 0; /* close */
-            win->closed = 1;
-            win->px = win->py = -1;
+            window_close(win);
             return;
         } else if(show_bar && my >= y && my < y+14 && mx >= x+w-24 && mx < x+w-14) {
             win->state = 2; /* minimize */
