@@ -22,3 +22,22 @@ void draw_rect(int x, int y, int w, int h, uint8_t color) {
         }
     }
 }
+
+void draw_rounded_rect(int x, int y, int w, int h, int r, uint8_t color) {
+    if(r <= 0) { draw_rect(x, y, w, h, color); return; }
+    /* central rects */
+    draw_rect(x + r, y, w - 2*r, h, color);
+    draw_rect(x, y + r, r, h - 2*r, color);
+    draw_rect(x + w - r, y + r, r, h - 2*r, color);
+
+    for(int dy = 0; dy < r; dy++) {
+        for(int dx = 0; dx < r; dx++) {
+            if(dx*dx + dy*dy <= r*r) {
+                put_pixel(x + r - dx - 1, y + r - dy - 1, color); /* TL */
+                put_pixel(x + w - r + dx, y + r - dy - 1, color);  /* TR */
+                put_pixel(x + r - dx - 1, y + h - r + dy, color);  /* BL */
+                put_pixel(x + w - r + dx, y + h - r + dy, color);  /* BR */
+            }
+        }
+    }
+}

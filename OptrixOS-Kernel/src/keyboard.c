@@ -2,7 +2,7 @@
 #include "ports.h"
 #include <stdint.h>
 
-#define KBUF_SIZE 32
+#define KBUF_SIZE 128
 
 static char kbuf[KBUF_SIZE];
 static int khead = 0;
@@ -71,4 +71,9 @@ char keyboard_getchar(void) {
     char c = kbuf[ktail];
     ktail = (ktail + 1) % KBUF_SIZE;
     return c;
+}
+
+void keyboard_flush(void) {
+    khead = ktail = 0;
+    while(inb(0x64) & 1) inb(0x60);
 }
