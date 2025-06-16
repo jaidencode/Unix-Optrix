@@ -13,10 +13,8 @@ start:
     mov ss, ax
     mov sp, 0x7C00
 
-    ; Set video mode 03h with 8x8 font for 80x50 text
-    mov ax, 0x0003
-    int 0x10
-    mov ax, 0x1114
+    ; Set graphics mode 13h (320x200 256 colors)
+    mov ax, 0x0013
     int 0x10
 
     ; load kernel (assumes kernel starts at second sector)
