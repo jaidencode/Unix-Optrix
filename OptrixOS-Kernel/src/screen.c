@@ -2,8 +2,8 @@
 #include "ports.h"
 #include <stdint.h>
 
-#define WIDTH 80
-#define HEIGHT 25
+#define WIDTH 100
+#define HEIGHT 30
 
 static volatile uint16_t* const VIDEO = (uint16_t*)0xB8000;
 
