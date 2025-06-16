@@ -13,15 +13,21 @@ start:
     mov ss, ax
     mov sp, 0x7C00
 
-    ; Get VESA mode information for 0x144 (1920x1080, 256 colors)
+    ; Get VESA mode information for 0x144 (1920x1080, 24/32bpp)
     mov ax, 0x4F01
     mov cx, 0x144
     mov di, mode_info
     int 0x10
-    ; Save linear framebuffer address
+    ; Save framebuffer parameters for the kernel
     mov si, mode_info
     mov eax, [si + 0x28]
     mov [fb_addr], eax
+    mov ax, [si + 0x12]    ; XResolution
+    mov [fb_width], ax
+    mov ax, [si + 0x14]    ; YResolution
+    mov [fb_height], ax
+    mov al, [si + 0x19]    ; BitsPerPixel
+    mov [fb_bpp], al
 
     ; Set VESA graphics mode 0x4144 (1920x1080 256 colors, linear FB)
     mov ax, 0x4F02
@@ -58,6 +64,9 @@ protected_mode:
     mov esp, 0x90000
 
     mov ebx, [fb_addr]
+    mov ecx, [fb_width]
+    mov edx, [fb_height]
+    mov esi, [fb_bpp]
 
     call dword 0x1000
 .halt:
@@ -78,6 +87,9 @@ gdt_desc:
 
 mode_info: times 256 db 0
 fb_addr:   dd 0
+fb_width:  dw 0
+fb_height: dw 0
+fb_bpp:    db 0
 
 BOOT_DRIVE: db 0
 
