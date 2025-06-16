@@ -8,10 +8,14 @@ static int resize = 0;
 static int prev_mx, prev_my;
 static int saved_x, saved_y, saved_w, saved_h;
 
-void window_init(window_t *win, int x, int y, int w, int h, const char *title) {
+void window_init(window_t *win, int x, int y, int w, int h,
+                 const char *title, uint8_t color, uint8_t bg_color) {
     win->x = x; win->y = y; win->w = w; win->h = h;
+    win->px = x; win->py = y; win->pw = w; win->ph = h;
     win->visible = 1;
     win->state = 0;
+    win->color = color;
+    win->bg_color = bg_color;
     win->title = title;
 }
 
@@ -24,14 +28,20 @@ static void draw_buttons(int x, int y) {
     draw_rect(x-12, y+2, 10, 10, 0x03);
 }
 
-void window_draw(window_t* win, uint8_t color) {
+void window_draw(window_t* win) {
     if(!win || !win->visible) return;
     int x = win->x; int y = win->y; int w = win->w; int h = win->h;
     if(win->state == 1) { x = 0; y = 0; w = SCREEN_WIDTH; h = SCREEN_HEIGHT; }
     if(win->state == 2) return; /* minimized */
 
+    /* clear previous location if window moved */
+    if(x != win->px || y != win->py || w != win->pw || h != win->ph) {
+        draw_rect(win->px, win->py, win->pw, win->ph, win->bg_color);
+        win->px = x; win->py = y; win->pw = w; win->ph = h;
+    }
+
     int show_bar = !(win->state == 1 && mouse_get_y() > 2);
-    draw_rect(x, y, w, h, color);
+    draw_rect(x, y, w, h, win->color);
     if(show_bar) {
         draw_rect(x, y, w, 14, 0x01); /* title bar */
         if(win->title) {
