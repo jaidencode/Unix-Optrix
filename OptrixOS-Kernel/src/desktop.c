@@ -65,13 +65,10 @@ void desktop_init(void) {
 
 void desktop_run(void) {
     mouse_init();
+    mouse_set_visible(1);
     if(!mouse_is_present())
         ; /* fallback will use keyboard input */
-
-    int last_mx = mouse_get_x();
-    int last_my = mouse_get_y();
-    draw_rect(last_mx-2, last_my-2, 4, 4, 0x0F);
-
+    mouse_draw(DESKTOP_BG_COLOR);
     while(1) {
         mouse_update();
         int mx = mouse_get_x();
@@ -95,15 +92,8 @@ void desktop_run(void) {
             if(click_timer>30){ click_timer=0; last_clicked=-1; }
         }
 
-        if(mx != last_mx || my != last_my) {
-            draw_rect(last_mx-2, last_my-2, 4, 4, DESKTOP_BG_COLOR);
-        }
-
         window_handle_mouse(&demo_win, mx, my, mouse_clicked());
         window_draw(&demo_win);
-        draw_rect(mx-2,my-2,4,4,0x0F);
-
-        last_mx = mx;
-        last_my = my;
+        mouse_draw(DESKTOP_BG_COLOR);
     }
 }

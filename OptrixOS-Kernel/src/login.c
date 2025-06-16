@@ -3,6 +3,7 @@
 
 /* Simple login prompt shown before terminal starts */
 void login_prompt(void) {
+    keyboard_flush();
     const char *user_msg = "Username: admin";
     const char *pass_msg = "Password: ";
     char input[32];

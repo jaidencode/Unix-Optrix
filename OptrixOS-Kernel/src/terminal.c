@@ -1,6 +1,7 @@
 #include "terminal.h"
 #include "keyboard.h"
 #include "screen.h"
+#include "mouse.h"
 #include "fs.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -89,6 +90,7 @@ static void putchar(char c) {
 }
 
 void terminal_init(void) {
+    keyboard_flush();
     for(int y=0; y<HEIGHT; y++)
         for(int x=0; x<WIDTH; x++)
             put_entry_at(' ', BACKGROUND_COLOR, x, y);
@@ -137,7 +139,10 @@ static void read_line(char* buf, size_t max) {
     int blink = 0;
     cursor_on = 1;
     draw_cursor(1);
+    mouse_draw(BACKGROUND_COLOR);
     while(idx < max-1) {
+        mouse_update();
+        mouse_draw(BACKGROUND_COLOR);
         char c = keyboard_getchar();
         if(!c) {
             blink++;
@@ -182,6 +187,7 @@ static void read_line(char* buf, size_t max) {
         buf[idx++] = c;
     }
     draw_cursor(0);
+    mouse_draw(BACKGROUND_COLOR);
     buf[idx] = '\0';
 }
 
@@ -540,6 +546,8 @@ static void execute(const char* line) {
 
 void terminal_run(void) {
     char buf[128];
+    mouse_set_visible(1);
+    mouse_draw(BACKGROUND_COLOR);
     while(1) {
         print("> ");
         read_line(buf, sizeof(buf));

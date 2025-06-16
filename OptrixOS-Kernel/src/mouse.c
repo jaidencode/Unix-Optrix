@@ -8,6 +8,22 @@ static int mx = SCREEN_WIDTH/2;
 static int my = SCREEN_HEIGHT/2;
 static int clicked = 0;
 static int mouse_present = 0;
+static int cursor_visible = 1;
+static int prev_x = -1, prev_y = -1;
+
+void mouse_set_visible(int vis) { cursor_visible = vis; }
+int mouse_get_visible(void) { return cursor_visible; }
+
+void mouse_draw(uint8_t bg_color) {
+    if(prev_x != -1 && prev_y != -1 && cursor_visible)
+        draw_rect(prev_x-2, prev_y-2, 4, 4, bg_color);
+    if(cursor_visible) {
+        draw_rect(mx-2, my-2, 4, 4, 0x0F);
+        prev_x = mx; prev_y = my;
+    } else {
+        prev_x = prev_y = -1;
+    }
+}
 
 static void mouse_wait_input(void) {
     for(int i=0;i<100000;i++) if(inb(0x64) & 1) return;
