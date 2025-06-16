@@ -1,10 +1,10 @@
 #include "terminal.h"
 #include "keyboard.h"
 #include "screen.h"
+#include "fs.h"
 #include <stdint.h>
 #include <stddef.h>
 
-static void fs_init(void);
 static int streq(const char* a, const char* b) { while(*a && *b) { if(*a!=*b) return 0; a++; b++; } return *a==*b; }
 static int strprefix(const char* str, const char* pre) { while(*pre) { if(*str!=*pre) return 0; str++; pre++; } return 1; }
 
@@ -180,6 +180,10 @@ static void cmd_help(void) {
     print("dir         - list directory contents\n");
     print("cd <dir>    - change directory\n");
     print("pwd        - show current path\n");
+    print("date       - show build date\n");
+    print("whoami     - display current user\n");
+    print("hello      - greet the user\n");
+    print("uptime     - show uptime counter\n");
 }
 
 static void cmd_clear(void) {
@@ -253,53 +257,32 @@ static void cmd_border(void) {
     terminal_init();
 }
 
-/* simple in-memory filesystem */
-typedef struct entry {
-    const char* name;
-    int is_dir;
-    struct entry* parent;
-    const struct entry* children;
-    int child_count;
-} entry;
+static void cmd_date(void) {
+    print("Build date: " __DATE__ " " __TIME__ "\n");
+}
 
-static entry bin_entries[] = {
-    {"echo", 0, NULL, NULL, 0},
-    {"ping", 0, NULL, NULL, 0},
-};
+static void cmd_whoami(void) {
+    print("root\n");
+}
 
-static entry docs_entries[] = {
-    {"guide.txt", 0, NULL, NULL, 0},
-    {"info.txt", 0, NULL, NULL, 0},
-};
+static void cmd_hello(void) {
+    print("Hello, user!\n");
+}
 
-static entry root_entries[] = {
-    {"bin", 1, NULL, bin_entries, 2},
-    {"docs", 1, NULL, docs_entries, 2},
-    {"readme.txt", 0, NULL, NULL, 0},
-};
+static unsigned int uptime_counter = 0;
+static void cmd_uptime(void) {
+    print("Uptime: ");
+    print_int(uptime_counter);
+    print(" ticks\n");
+}
 
-static entry root_dir = {"/", 1, NULL, root_entries, 3};
-static entry* current_dir = &root_dir;
+#include "fs.h"
+
+static fs_entry* current_dir;
 static char current_path[32] = "/";
 
-static void fs_init(void) {
-    for(int i=0;i<root_dir.child_count;i++)
-        root_entries[i].parent = &root_dir;
-    for(int i=0;i<2;i++)
-        bin_entries[i].parent = &root_entries[0];
-    for(int i=0;i<2;i++)
-        docs_entries[i].parent = &root_entries[1];
-}
-
-static entry* find_subdir(entry* dir, const char* name) {
-    for(int i=0;i<dir->child_count;i++)
-        if(dir->children[i].is_dir && streq(dir->children[i].name, name))
-            return (entry*)&dir->children[i];
-    return NULL;
-}
-
 static void cmd_dir(void) {
-    for(int i=0;i<current_dir->child_count;i++) {
+    for(int i=0; i<current_dir->child_count; i++) {
         print(current_dir->children[i].name);
         if(current_dir->children[i].is_dir) print("/");
         print("  ");
@@ -309,14 +292,14 @@ static void cmd_dir(void) {
 
 static void cmd_cd(const char* args) {
     if(args[0]=='\0' || streq(args, "/")) {
-        current_dir = &root_dir;
+        current_dir = fs_get_root();
         current_path[0] = '/'; current_path[1] = '\0';
         return;
     }
     if(streq(args, "..")) {
         if(current_dir->parent) {
             current_dir = current_dir->parent;
-            if(current_dir == &root_dir) {
+            if(current_dir == fs_get_root()) {
                 current_path[0] = '/'; current_path[1] = '\0';
             } else {
                 /* simple two level path */
@@ -328,10 +311,10 @@ static void cmd_cd(const char* args) {
         }
         return;
     }
-    entry* d = find_subdir(current_dir, args);
+    fs_entry* d = fs_find_subdir(current_dir, args);
     if(d) {
         current_dir = d;
-        if(current_dir == &root_dir) {
+        if(current_dir == fs_get_root()) {
             current_path[0] = '/'; current_path[1] = '\0';
         } else {
             current_path[0]='/';
@@ -373,6 +356,14 @@ static void execute(const char* line) {
         cmd_cd(line+3);
     } else if(streq(line, "pwd")) {
         cmd_pwd();
+    } else if(streq(line, "date")) {
+        cmd_date();
+    } else if(streq(line, "whoami")) {
+        cmd_whoami();
+    } else if(streq(line, "hello")) {
+        cmd_hello();
+    } else if(streq(line, "uptime")) {
+        cmd_uptime();
     } else if(line[0]) {
         print("Unknown command\n");
     }
@@ -384,5 +375,6 @@ void terminal_run(void) {
         print("> ");
         read_line(buf, sizeof(buf));
         execute(buf);
+        uptime_counter++;
     }
 }
