@@ -42,6 +42,23 @@ void screen_put_char(int col, int row, char c, uint8_t color) {
     }
 }
 
+void screen_put_char_offset(int col, int row, char c, uint8_t color,
+                            int off_x, int off_y) {
+    if(c < 0) c = '?';
+    const uint8_t *glyph = font8x8_basic[(unsigned char)c];
+    int x = off_x + col * CHAR_WIDTH;
+    int y = off_y + row * CHAR_HEIGHT;
+    for(int cy=0; cy<CHAR_HEIGHT; cy++) {
+        uint8_t line = glyph[(cy * 8) / CHAR_HEIGHT];
+        for(int cx=0; cx<CHAR_WIDTH; cx++) {
+            if(line & (1 << ((cx * 8) / CHAR_WIDTH)))
+                put_pixel(x+cx, y+cy, color);
+            else
+                put_pixel(x+cx, y+cy, BACKGROUND_COLOR);
+        }
+    }
+}
+
 void screen_init(void) {
     /* The desktop and terminal now start without a decorative border */
     screen_clear();

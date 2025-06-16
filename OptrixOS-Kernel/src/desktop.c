@@ -5,37 +5,60 @@
 #include "terminal.h"
 #include "window.h"
 #include "exec.h"
+#include "fs.h"
 
 #define DESKTOP_BG_COLOR 0x17
+#define MAX_ICONS 20
 
-static int icon_x = 50;
-static int icon_y = 50;
-static int dragging = 0;
+typedef struct { int x; int y; fs_entry* entry; } icon_t;
+
+static icon_t icons[MAX_ICONS];
+static int icon_count = 0;
 static int click_timer = 0;
+static int last_clicked = -1;
 static window_t demo_win;
 
 static void terminal_exec(window_t *win) {
-    (void)win;
+    terminal_set_window(win);
     terminal_init();
     terminal_run();
 }
 
-static void draw_icon(void) {
-    draw_rect(icon_x, icon_y, 32, 32, 0x07);
-    screen_put_char((icon_x+12-OFFSET_X)/CHAR_WIDTH, (icon_y+12-OFFSET_Y)/CHAR_HEIGHT, 'T', 0x0F);
+static void draw_icons(void) {
+    const int spacing = 40;
+    int x = 50;
+    int y = 50;
+    for(int i=0; i<icon_count; i++) {
+        icons[i].x = x;
+        icons[i].y = y;
+        draw_rect(x, y, 32, 32, 0x07);
+        char c = icons[i].entry->name[0];
+        screen_put_char((x+12-OFFSET_X)/CHAR_WIDTH,
+                       (y+12-OFFSET_Y)/CHAR_HEIGHT, c, 0x0F);
+        x += spacing;
+        if(x + 32 > SCREEN_WIDTH - 50) { x = 50; y += spacing; }
+    }
 }
 
-static int in_icon(int x, int y) {
-    return (x >= icon_x && x < icon_x+32 && y >= icon_y && y < icon_y+32);
+static int in_icon(int idx, int x, int y) {
+    return (x >= icons[idx].x && x < icons[idx].x+32 &&
+            y >= icons[idx].y && y < icons[idx].y+32);
 }
 
 void desktop_init(void) {
+    fs_init();
     draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,DESKTOP_BG_COLOR);
-    icon_x = 50;
-    icon_y = 50;
-    draw_icon();
+    fs_entry* root = fs_get_root();
+    fs_entry* desk = fs_find_subdir(root, "desktop");
+    icon_count = 0;
+    if(desk) {
+        for(int i=0; i<desk->child_count && i<MAX_ICONS; i++) {
+            icons[icon_count++].entry = &desk->children[i];
+        }
+    }
+    draw_icons();
     exec_init();
-    exec_register("terminal", terminal_exec);
+    exec_register("terminal.opt", terminal_exec);
     window_init(&demo_win, 100, 100, 200, 150, "Demo", 0x07, DESKTOP_BG_COLOR);
     window_draw(&demo_win);
 }
@@ -47,9 +70,6 @@ void desktop_run(void) {
 
     int last_mx = mouse_get_x();
     int last_my = mouse_get_y();
-    int last_icon_x = icon_x;
-    int last_icon_y = icon_y;
-
     draw_rect(last_mx-2, last_my-2, 4, 4, 0x0F);
 
     while(1) {
@@ -58,34 +78,21 @@ void desktop_run(void) {
         int my = mouse_get_y();
 
         if(mouse_clicked()) {
-            if(in_icon(mx,my)) {
-                if(click_timer > 0 && click_timer < 20) {
-                    exec_run("terminal");
-                    desktop_init();
-                    last_icon_x = icon_x;
-                    last_icon_y = icon_y;
-                } else {
-                    dragging = 1;
-                    click_timer = 1;
+            for(int i=0;i<icon_count;i++) {
+                if(in_icon(i,mx,my)) {
+                    if(click_timer>0 && last_clicked==i && click_timer<20) {
+                        exec_run(icons[i].entry->name);
+                        desktop_init();
+                    } else {
+                        last_clicked=i;
+                        click_timer=1;
+                    }
+                    break;
                 }
-            } else {
-                click_timer = 1;
             }
         } else {
-            if(dragging) {
-                icon_x = mx-16;
-                icon_y = my-16;
-            }
             if(click_timer>0) click_timer++;
-            if(click_timer>30) click_timer=0;
-            dragging = 0;
-        }
-
-        if(icon_x != last_icon_x || icon_y != last_icon_y) {
-            draw_rect(last_icon_x, last_icon_y, 32, 32, DESKTOP_BG_COLOR);
-            last_icon_x = icon_x;
-            last_icon_y = icon_y;
-            draw_icon();
+            if(click_timer>30){ click_timer=0; last_clicked=-1; }
         }
 
         if(mx != last_mx || my != last_my) {

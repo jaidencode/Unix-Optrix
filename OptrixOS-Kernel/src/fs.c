@@ -21,6 +21,11 @@ static int bin_count = 0;
 static fs_entry docs_entries[MAX_DOC_ENTRIES];
 static int docs_count = 0;
 
+/* entries for /desktop */
+#define MAX_DESKTOP_ENTRIES 20
+static fs_entry desktop_entries[MAX_DESKTOP_ENTRIES];
+static int desktop_count = 0;
+
 static fs_entry root_dir = {"/", 1, NULL, root_entries, 0, ""};
 
 #define MAX_EXTRA_DIRS 20
@@ -36,6 +41,7 @@ void fs_init(void) {
     root_count = 0;
     bin_count = 0;
     docs_count = 0;
+    desktop_count = 0;
 
     /* setup /bin directory */
     fs_entry bin = {"bin", 1, &root_dir, bin_entries, 0, ""};
@@ -45,9 +51,19 @@ void fs_init(void) {
     fs_entry docs = {"docs", 1, &root_dir, docs_entries, 0, ""};
     root_entries[root_count++] = docs;
 
+    /* setup /desktop directory */
+    fs_entry desktop = {"desktop", 1, &root_dir, desktop_entries, 0, ""};
+    root_entries[root_count++] = desktop;
+    fs_entry *desktop_ptr = &root_entries[root_count-1];
+
     /* simple readme */
     fs_entry readme = {"readme.txt", 0, &root_dir, NULL, 0, "Welcome to OptrixOS"};
     root_entries[root_count++] = readme;
+
+    /* /desktop/terminal.opt executable */
+    fs_entry term = {"terminal.opt", 0, desktop_ptr, NULL, 0, ""};
+    desktop_entries[desktop_count++] = term;
+    desktop_ptr->child_count = desktop_count;
 
     root_dir.child_count = root_count;
 }

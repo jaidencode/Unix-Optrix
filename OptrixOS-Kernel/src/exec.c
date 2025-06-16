@@ -1,7 +1,7 @@
 #include "exec.h"
 #include <stddef.h>
 
-#define MAX_EXECS 5
+#define MAX_EXECS 10
 
 typedef struct {
     const char* name;
