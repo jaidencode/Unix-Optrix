@@ -12,8 +12,10 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
 - Bootloader prints progress messages while loading the kernel.
+- Displays a simple spinning logo for a few seconds before launching the
+  terminal.
 
-Once the kernel takes over it runs entirely in VGA text mode and
+Once the kernel takes over it switches to a graphical mode and
 initialises a very small shell interface.
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
@@ -45,11 +47,12 @@ qemu-system-x86_64 -hda disk.img
 
 ## Built-in terminal
 
-After boot a simple text terminal is available. The screen now uses an 80x50
-text mode and shows a title bar with a box-drawing border rendered using VGA
-graphics characters. The background is black with cyan text while the cursor
-is rendered in bright red. The hardware text mode cursor is disabled so only
-the custom cursor is visible. The terminal automatically scrolls as it fills.
+After boot a simple text terminal is available. The screen now runs in a
+high‑resolution 800x600 graphics mode with characters rendered at a 21‑pixel
+size. A title bar with a box-drawing border is drawn using VGA graphics
+characters. The background is black with cyan text while the cursor is
+rendered in bright red. The hardware text mode cursor is disabled so only the
+custom cursor is visible. The terminal automatically scrolls as it fills.
 The following commands are implemented:
 
 * `help`    - display available commands
@@ -68,4 +71,9 @@ The following commands are implemented:
 * `whoami`  - display current user
 * `hello`   - greet the user
 * `uptime`  - show uptime counter
+* `cat`     - view a file
+* `touch`   - create a file
+* `write`   - write text to a file
+* `rm`      - delete a file
+* `mv`      - rename a file
 

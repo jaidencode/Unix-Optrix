@@ -13,8 +13,9 @@ start:
     mov ss, ax
     mov sp, 0x7C00
 
-    ; Set graphics mode 13h (320x200 256 colors)
-    mov ax, 0x0013
+    ; Set VESA graphics mode 0x103 (800x600 256 colors)
+    mov ax, 0x4F02
+    mov bx, 0x103
     int 0x10
 
     ; load kernel (assumes kernel starts at second sector)

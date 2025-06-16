@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define SCREEN_COLS 38
-#define SCREEN_ROWS 23
+#define SCREEN_COLS 37
+#define SCREEN_ROWS 27
 
 void screen_init(void);
 void screen_clear(void);

@@ -3,10 +3,10 @@
 #include "font/font8x8_basic.h"
 #include <stdint.h>
 
-#define SCREEN_WIDTH 320
-#define SCREEN_HEIGHT 200
-#define CHAR_WIDTH 8
-#define CHAR_HEIGHT 8
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
+#define CHAR_WIDTH 21
+#define CHAR_HEIGHT 21
 #define OFFSET_X 8
 #define OFFSET_Y 8
 
@@ -31,9 +31,9 @@ void screen_put_char(int col, int row, char c, uint8_t color) {
     int x = OFFSET_X + col * CHAR_WIDTH;
     int y = OFFSET_Y + row * CHAR_HEIGHT;
     for(int cy=0; cy<CHAR_HEIGHT; cy++) {
-        uint8_t line = glyph[cy];
+        uint8_t line = glyph[(cy * 8) / CHAR_HEIGHT];
         for(int cx=0; cx<CHAR_WIDTH; cx++) {
-            if(line & (1 << cx))
+            if(line & (1 << ((cx * 8) / CHAR_WIDTH)))
                 put_pixel(x+cx, y+cy, color);
             else
                 put_pixel(x+cx, y+cy, 0x00);
