@@ -64,4 +64,8 @@ The following commands are implemented:
 * `dir`     - list directory contents
 * `cd`      - change directory
 * `pwd`     - show current directory
+* `date`    - show build date
+* `whoami`  - display current user
+* `hello`   - greet the user
+* `uptime`  - show uptime counter
 
