@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 #define WIDTH 80
-#define HEIGHT 25
+#define HEIGHT 50
 
 static volatile uint16_t* const VIDEO = (uint16_t*)0xB8000;
 

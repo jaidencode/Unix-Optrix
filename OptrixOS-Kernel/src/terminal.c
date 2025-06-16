@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
+static void fs_init(void);
+
 static int streq(const char* a, const char* b) {
     while(*a && *b) {
         if(*a != *b) return 0;
@@ -21,10 +23,10 @@ static int strprefix(const char* str, const char* pre) {
 }
 
 #define WIDTH 80
-#define HEIGHT 25
+#define HEIGHT 50
 #define BORDER_COLOR 0x0F
-#define DEFAULT_TEXT_COLOR 0x0E
-#define CURSOR_COLOR 0x0E
+#define DEFAULT_TEXT_COLOR 0x0B
+#define CURSOR_COLOR 0x0C
 #define CURSOR_CHAR '_'
 
 static volatile uint16_t* const VIDEO = (uint16_t*)0xB8000;
@@ -77,6 +79,7 @@ void terminal_init(void) {
     row = 1;
     col = 1;
     draw_cursor(1);
+    fs_init();
 }
 
 static void print(const char* str) {
@@ -143,6 +146,14 @@ static void read_line(char* buf, size_t max) {
             }
             continue;
         }
+        if(c == '\t') {
+            int spaces = 4 - ((col - 1) % 4);
+            for(int s=0; s<spaces && idx < max-1; s++) {
+                putchar(' ');
+                buf[idx++] = ' ';
+            }
+            continue;
+        }
         putchar(c);
         buf[idx++] = c;
     }
@@ -161,6 +172,9 @@ static void cmd_help(void) {
     print("add <a> <b>   - add two numbers\n");
     print("color <hex>  - set text color\n");
     print("border      - redraw border\n");
+    print("dir         - list directory contents\n");
+    print("cd <dir>    - change directory\n");
+    print("pwd        - show current path\n");
 }
 
 static void cmd_clear(void) {
@@ -234,6 +248,101 @@ static void cmd_border(void) {
     terminal_init();
 }
 
+/* simple in-memory filesystem */
+typedef struct entry {
+    const char* name;
+    int is_dir;
+    struct entry* parent;
+    const struct entry* children;
+    int child_count;
+} entry;
+
+static entry bin_entries[] = {
+    {"echo", 0, NULL, NULL, 0},
+    {"ping", 0, NULL, NULL, 0},
+};
+
+static entry docs_entries[] = {
+    {"guide.txt", 0, NULL, NULL, 0},
+    {"info.txt", 0, NULL, NULL, 0},
+};
+
+static entry root_entries[] = {
+    {"bin", 1, NULL, bin_entries, 2},
+    {"docs", 1, NULL, docs_entries, 2},
+    {"readme.txt", 0, NULL, NULL, 0},
+};
+
+static entry root_dir = {"/", 1, NULL, root_entries, 3};
+static entry* current_dir = &root_dir;
+static char current_path[32] = "/";
+
+static void fs_init(void) {
+    for(int i=0;i<root_dir.child_count;i++)
+        root_entries[i].parent = &root_dir;
+    for(int i=0;i<2;i++)
+        bin_entries[i].parent = &root_entries[0];
+    for(int i=0;i<2;i++)
+        docs_entries[i].parent = &root_entries[1];
+}
+
+static entry* find_subdir(entry* dir, const char* name) {
+    for(int i=0;i<dir->child_count;i++)
+        if(dir->children[i].is_dir && streq(dir->children[i].name, name))
+            return (entry*)&dir->children[i];
+    return NULL;
+}
+
+static void cmd_dir(void) {
+    for(int i=0;i<current_dir->child_count;i++) {
+        print(current_dir->children[i].name);
+        if(current_dir->children[i].is_dir) print("/");
+        print("  ");
+    }
+    putchar('\n');
+}
+
+static void cmd_cd(const char* args) {
+    if(args[0]=='\0' || streq(args, "/")) {
+        current_dir = &root_dir;
+        current_path[0] = '/'; current_path[1] = '\0';
+        return;
+    }
+    if(streq(args, "..")) {
+        if(current_dir->parent) {
+            current_dir = current_dir->parent;
+            if(current_dir == &root_dir) {
+                current_path[0] = '/'; current_path[1] = '\0';
+            } else {
+                /* simple two level path */
+                current_path[0] = '/';
+                const char* name = current_dir->name;
+                int i=0; while(name[i]) { current_path[i+1]=name[i]; i++; }
+                current_path[i+1]='\0';
+            }
+        }
+        return;
+    }
+    entry* d = find_subdir(current_dir, args);
+    if(d) {
+        current_dir = d;
+        if(current_dir == &root_dir) {
+            current_path[0] = '/'; current_path[1] = '\0';
+        } else {
+            current_path[0]='/';
+            int i=0; while(args[i]) { current_path[i+1] = args[i]; i++; }
+            current_path[i+1]='\0';
+        }
+    } else {
+        print("No such directory\n");
+    }
+}
+
+static void cmd_pwd(void) {
+    print(current_path);
+    putchar('\n');
+}
+
 static void execute(const char* line) {
     if(streq(line, "help")) {
         cmd_help();
@@ -253,6 +362,12 @@ static void execute(const char* line) {
         cmd_color(line+6);
     } else if(streq(line, "border")) {
         cmd_border();
+    } else if(streq(line, "dir")) {
+        cmd_dir();
+    } else if(strprefix(line, "cd ")) {
+        cmd_cd(line+3);
+    } else if(streq(line, "pwd")) {
+        cmd_pwd();
     } else if(line[0]) {
         print("Unknown command\n");
     }

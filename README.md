@@ -45,13 +45,12 @@ qemu-system-x86_64 -hda disk.img
 
 ## Built-in terminal
 
-After boot a simple text terminal is available. The screen displays in the
-standard 80x25 text mode and shows a title bar with a
-box-drawing border rendered using VGA graphics characters. The background is
-black with yellow text and the blinking software cursor matches the text
-colour. The hardware text mode cursor is disabled so only the custom cursor is
-visible. The terminal automatically scrolls as it fills. The following
-commands are implemented:
+After boot a simple text terminal is available. The screen now uses an 80x50
+text mode and shows a title bar with a box-drawing border rendered using VGA
+graphics characters. The background is black with cyan text while the cursor
+is rendered in bright red. The hardware text mode cursor is disabled so only
+the custom cursor is visible. The terminal automatically scrolls as it fills.
+The following commands are implemented:
 
 * `help`    - display available commands
 * `clear`   - clear the screen
@@ -62,4 +61,7 @@ commands are implemented:
 * `add`     - add two numbers
 * `color`   - set the text colour
 * `border`  - redraw the terminal border
+* `dir`     - list directory contents
+* `cd`      - change directory
+* `pwd`     - show current directory
 
