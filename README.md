@@ -43,7 +43,7 @@ If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
 script outputs `disk.img` which can be run with:
 
 ```bash
-qemu-system-x86_64 -hda disk.img
+qemu-system-x86_64 -vga std -g 1920x1080x32 -hda disk.img
 ```
 
 ## Built-in terminal
