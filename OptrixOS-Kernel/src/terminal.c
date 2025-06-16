@@ -185,6 +185,8 @@ static void cmd_help(void) {
     print("write <file> <text> - write text to file\n");
     print("rm <file>   - delete file\n");
     print("mv <a> <b>  - rename file\n");
+    print("mkdir <name> - create directory\n");
+    print("rmdir <name> - remove directory\n");
     print("date       - show build date\n");
     print("whoami     - display current user\n");
     print("hello      - greet the user\n");
@@ -358,6 +360,30 @@ static void cmd_touch(const char* name) {
     }
 }
 
+static void cmd_mkdir(const char* name) {
+    if(fs_find_entry(current_dir, name)) {
+        print("Entry exists\n");
+        return;
+    }
+    if(fs_create_dir(current_dir, name)) {
+        print("Directory created\n");
+    } else {
+        print("Cannot create directory\n");
+    }
+}
+
+static void cmd_rmdir(const char* name) {
+    fs_entry* d = fs_find_entry(current_dir, name);
+    if(d && d->is_dir && d->child_count==0) {
+        if(fs_delete_entry(current_dir, name))
+            print("Directory removed\n");
+        else
+            print("Error removing directory\n");
+    } else {
+        print("Directory not empty or not found\n");
+    }
+}
+
 static void cmd_write(const char* args) {
     int i=0;
     while(args[i] && args[i]!=' ') i++;
@@ -436,6 +462,10 @@ static void execute(const char* line) {
         cmd_rm(line+3);
     } else if(strprefix(line, "mv ")) {
         cmd_mv(line+3);
+    } else if(strprefix(line, "mkdir ")) {
+        cmd_mkdir(line+6);
+    } else if(strprefix(line, "rmdir ")) {
+        cmd_rmdir(line+6);
     } else if(streq(line, "date")) {
         cmd_date();
     } else if(streq(line, "whoami")) {

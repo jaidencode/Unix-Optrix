@@ -9,17 +9,19 @@ void screen_clear(void) {
 }
 
 static void draw_border(void) {
+    /* Slightly thicker border with light grey outer line and
+       cyan inner line for a cleaner look */
     for(int x=0; x<SCREEN_WIDTH; x++) {
-        put_pixel(x, 0, 0x0F);
-        put_pixel(x, 1, 0x09);
-        put_pixel(x, SCREEN_HEIGHT-2, 0x09);
-        put_pixel(x, SCREEN_HEIGHT-1, 0x0F);
+        put_pixel(x, 0, 0x07);               /* outer */
+        put_pixel(x, 1, 0x0B);               /* inner */
+        put_pixel(x, SCREEN_HEIGHT-2, 0x0B);
+        put_pixel(x, SCREEN_HEIGHT-1, 0x07);
     }
     for(int y=0; y<SCREEN_HEIGHT; y++) {
-        put_pixel(0, y, 0x0F);
-        put_pixel(1, y, 0x09);
-        put_pixel(SCREEN_WIDTH-2, y, 0x09);
-        put_pixel(SCREEN_WIDTH-1, y, 0x0F);
+        put_pixel(0, y, 0x07);
+        put_pixel(1, y, 0x0B);
+        put_pixel(SCREEN_WIDTH-2, y, 0x0B);
+        put_pixel(SCREEN_WIDTH-1, y, 0x07);
     }
 }
 
