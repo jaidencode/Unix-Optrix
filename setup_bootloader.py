@@ -66,10 +66,15 @@ def obj_from_src(src):
     base = os.path.splitext(no_sep)[0]
     return os.path.join(OBJ_DIR, f"{base}.o")
 
-def assemble(src, out, fmt="bin"):
+def assemble(src, out, fmt="bin", defines=None):
     print(f"Assembling {src} -> {out} ...")
     fmt_flag = "-f" + fmt
-    run([NASM, fmt_flag, src, "-o", out])
+    cmd = [NASM, fmt_flag]
+    if defines:
+        for k, v in defines.items():
+            cmd.append(f"-D{k}={v}")
+    cmd += [src, "-o", out]
+    run(cmd)
     tmp_files.append(out)
 
 def compile_c(src, out):
@@ -149,16 +154,13 @@ def objcopy_binary(input_path, output_obj):
 def build_kernel(asm_files, c_files, out_bin):
     ensure_obj_dir()
     obj_files = []
-    boot_bin_path = None
-    # No resources to embed for text mode
-    # --- Your original kernel build logic below ---
+    bootloader_src = None
+
     for asm in asm_files:
         obj = obj_from_src(asm)
         base = os.path.splitext(os.path.basename(asm))[0]
         if "bootloader" in base:
-            boot_bin = "bootloader.bin"
-            assemble(asm, boot_bin, fmt="bin")
-            boot_bin_path = boot_bin
+            bootloader_src = asm
         else:
             run([NASM, "-felf32", asm, "-o", obj])
             obj_files.append(obj)
@@ -185,7 +187,14 @@ def build_kernel(asm_files, c_files, out_bin):
     ] + obj_files + ["-o", out_bin]
     run(link_cmd_bin)
     tmp_files.append(out_bin)
-    return boot_bin_path, out_bin
+
+    kernel_bytes = os.path.getsize(out_bin)
+    sectors = roundup(kernel_bytes, 512) // 512
+
+    boot_bin = "bootloader.bin"
+    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
+
+    return boot_bin, out_bin
 
 def on_rm_error(func, path, exc_info):
     # Make file writable and retry (Windows-safe)

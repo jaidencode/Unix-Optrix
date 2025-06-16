@@ -1,6 +1,10 @@
 BITS 16
 ORG 0x7C00
 
+%ifndef KERNEL_SECTORS
+%define KERNEL_SECTORS 1
+%endif
+
 start:
     cli
     xor ax, ax
@@ -14,11 +18,12 @@ start:
     int 0x10
 
     ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; load address
-    mov dh, 1         ; number of sectors
+    mov bx, 0x1000    ; ES:BX points to load address
     mov dl, [BOOT_DRIVE]
-    mov ax, 0x0201    ; BIOS read disk
-    mov cx, 0x0002    ; cylinder/head/sector = sector 2
+    mov dh, 0         ; head
+    mov ah, 0x02      ; BIOS read disk
+    mov al, KERNEL_SECTORS
+    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
     int 0x13
 
     ; setup basic GDT for protected mode
