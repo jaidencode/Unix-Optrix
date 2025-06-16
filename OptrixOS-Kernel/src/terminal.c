@@ -134,13 +134,8 @@ static void read_line(char* buf, size_t max) {
             break;
         }
         if(c == '\b') {
-            if(idx > 0) {
-                draw_cursor(0);         /* remove cursor from current position */
-                col--;                  /* move back one column */
-                idx--;                  /* update buffer index */
-                put_entry_at(' ', 0x00, col, row); /* clear character */
-                draw_cursor(1);         /* redraw cursor at new position */
-            }
+            if(idx > 0) { idx--; col--; putchar(' '); col--; }
+            draw_cursor(1);
             continue;
         }
         putchar(c);
