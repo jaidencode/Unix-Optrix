@@ -11,7 +11,7 @@ static int saved_x, saved_y, saved_w, saved_h;
 void window_init(window_t *win, int x, int y, int w, int h,
                  const char *title, uint8_t color, uint8_t bg_color) {
     win->x = x; win->y = y; win->w = w; win->h = h;
-    win->px = x; win->py = y; win->pw = w; win->ph = h;
+    win->px = -1; win->py = -1; win->pw = -1; win->ph = -1;
     win->visible = 1;
     win->state = 0;
     win->color = color;
@@ -38,6 +38,9 @@ void window_draw(window_t* win) {
     if(x != win->px || y != win->py || w != win->pw || h != win->ph) {
         draw_rect(win->px, win->py, win->pw, win->ph, win->bg_color);
         win->px = x; win->py = y; win->pw = w; win->ph = h;
+    } else {
+        /* nothing changed - avoid redraw flicker */
+        return;
     }
 
     int show_bar = !(win->state == 1 && mouse_get_y() > 2);

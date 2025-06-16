@@ -5,6 +5,9 @@
 #include <stdint.h>
 #include <stddef.h>
 
+static int origin_x = OFFSET_X;
+static int origin_y = OFFSET_Y + 14; /* space for title bar */
+
 static int streq(const char* a, const char* b) { while(*a && *b) { if(*a!=*b) return 0; a++; b++; } return *a==*b; }
 static int strprefix(const char* str, const char* pre) { while(*pre) { if(*str!=*pre) return 0; str++; pre++; } return 1; }
 
@@ -25,11 +28,18 @@ static uint8_t text_color = DEFAULT_TEXT_COLOR;
 static fs_entry* current_dir;
 static char current_path[32] = "/";
 
+void terminal_set_window(window_t *win) {
+    origin_x = win->x + 2;
+    origin_y = win->y + 14;
+}
+
 static void draw_cursor(int visible) {
     if(visible)
-        screen_put_char(col, row, CURSOR_CHAR, CURSOR_COLOR);
+        screen_put_char_offset(col, row, CURSOR_CHAR, CURSOR_COLOR,
+                               origin_x, origin_y);
     else
-        screen_put_char(col, row, text_buffer[row][col], color_buffer[row][col]);
+        screen_put_char_offset(col, row, text_buffer[row][col],
+                               color_buffer[row][col], origin_x, origin_y);
 }
 
 static void put_entry_at(char c, uint8_t color, int x, int y) {
@@ -37,7 +47,7 @@ static void put_entry_at(char c, uint8_t color, int x, int y) {
         return;
     text_buffer[y][x] = c;
     color_buffer[y][x] = color;
-    screen_put_char(x, y, c, color);
+    screen_put_char_offset(x, y, c, color, origin_x, origin_y);
 }
 
 static void scroll(void) {
@@ -45,13 +55,16 @@ static void scroll(void) {
         for(int x=0; x<WIDTH; x++) {
             text_buffer[y-1][x] = text_buffer[y][x];
             color_buffer[y-1][x] = color_buffer[y][x];
-            screen_put_char(x, y-1, text_buffer[y][x], color_buffer[y][x]);
+            screen_put_char_offset(x, y-1,
+                                  text_buffer[y][x], color_buffer[y][x],
+                                  origin_x, origin_y);
         }
     }
     for(int x=0; x<WIDTH; x++) {
         text_buffer[HEIGHT-1][x] = ' ';
         color_buffer[HEIGHT-1][x] = BACKGROUND_COLOR;
-        screen_put_char(x, HEIGHT-1, ' ', BACKGROUND_COLOR);
+        screen_put_char_offset(x, HEIGHT-1, ' ', BACKGROUND_COLOR,
+                              origin_x, origin_y);
     }
 }
 
