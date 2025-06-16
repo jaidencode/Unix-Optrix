@@ -14,6 +14,7 @@ void window_init(window_t *win, int x, int y, int w, int h,
     win->px = -1; win->py = -1; win->pw = -1; win->ph = -1;
     win->visible = 1;
     win->state = 0;
+    win->closed = 0;
     win->color = color;
     win->bg_color = bg_color;
     win->title = title;
@@ -40,7 +41,7 @@ void window_draw(window_t* win) {
         return;
     }
 
-    int show_bar = !(win->state == 1 && mouse_get_y() > 2);
+    int show_bar = (win->state != 1 || mouse_get_y() <= 2);
     /* shadow */
     draw_rounded_rect(x+2, y+2, w, h, 6, win->bg_color);
     /* window body */
@@ -64,12 +65,13 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
 
     int x = win->x; int y = win->y; int w = win->w; int h = win->h;
     if(win->state == 1) { x = 0; y = 0; w = SCREEN_WIDTH; h = SCREEN_HEIGHT; }
-    int show_bar = !(win->state == 1 && mouse_get_y() > 2);
+    int show_bar = (win->state != 1 || mouse_get_y() <= 2);
 
     if(click && !drag && !resize) {
         if(show_bar && my >= y && my < y+14 && mx >= x+w-36 && mx < x+w-26) {
             draw_rect(win->x, win->y, win->w, win->h, win->bg_color);
             win->visible = 0; /* close */
+            win->closed = 1;
             win->px = win->py = -1;
             return;
         } else if(show_bar && my >= y && my < y+14 && mx >= x+w-24 && mx < x+w-14) {
