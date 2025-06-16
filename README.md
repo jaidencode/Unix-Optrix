@@ -45,8 +45,8 @@ qemu-system-x86_64 -hda disk.img
 
 ## Built-in terminal
 
-After boot a simple text terminal is available. The screen now displays at a
-larger resolution of 100x30 characters and shows a title bar with a
+After boot a simple text terminal is available. The screen displays in the
+standard 80x25 text mode and shows a title bar with a
 box-drawing border rendered using VGA graphics characters. The background is
 black with yellow text and the blinking software cursor matches the text
 colour. The hardware text mode cursor is disabled so only the custom cursor is
