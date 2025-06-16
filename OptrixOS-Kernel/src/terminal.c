@@ -441,6 +441,32 @@ static void cmd_mv(const char* args) {
     }
 }
 
+static void cmd_cp(const char* args) {
+    char src[32];
+    char dst[32];
+    int i = 0;
+    while(args[i] && args[i] != ' ') { if(i < 31) src[i] = args[i]; i++; }
+    src[i < 31 ? i : 31] = '\0';
+    if(args[i] == 0) { print("Usage: cp <src> <dst>\n"); return; }
+    int j = 0; i++; while(args[i] && j < 31) { dst[j++] = args[i++]; }
+    dst[j] = '\0';
+    fs_entry* f = fs_find_entry(current_dir, src);
+    if(!f || f->is_dir) { print("No such file\n"); return; }
+    fs_entry* d = fs_find_entry(current_dir, dst);
+    if(!d) d = fs_create_file(current_dir, dst);
+    if(d && !d->is_dir) {
+        fs_write_file(d, fs_read_file(f));
+        print("Copied\n");
+    } else {
+        print("Cannot copy\n");
+    }
+}
+
+static void cmd_shutdown(void) {
+    print("Shutting down...\n");
+    while(1) { __asm__("hlt"); }
+}
+
 static void execute(const char* line) {
     if(streq(line, "help")) {
         cmd_help();
@@ -476,10 +502,14 @@ static void execute(const char* line) {
         cmd_rm(line+3);
     } else if(strprefix(line, "mv ")) {
         cmd_mv(line+3);
+    } else if(strprefix(line, "cp ")) {
+        cmd_cp(line+3);
     } else if(strprefix(line, "mkdir ")) {
         cmd_mkdir(line+6);
     } else if(strprefix(line, "rmdir ")) {
         cmd_rmdir(line+6);
+    } else if(streq(line, "shutdown")) {
+        cmd_shutdown();
     } else if(streq(line, "date")) {
         cmd_date();
     } else if(streq(line, "whoami")) {
@@ -488,6 +518,8 @@ static void execute(const char* line) {
         cmd_hello();
     } else if(streq(line, "uptime")) {
         cmd_uptime();
+    } else if(streq(line, "ls")) {
+        cmd_dir();
     } else if(line[0]) {
         print("Unknown command\n");
     }
