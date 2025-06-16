@@ -3,6 +3,8 @@
 
 /* Simple login prompt shown before terminal starts */
 void login_prompt(void) {
+    const char *welcome = "Welcome to OptrixOS";
+    const char *prompt  = "Please log in";
     const char *user_msg = "Username: admin";
     const char *pass_msg = "Password: ";
     char input[32];
@@ -10,10 +12,14 @@ void login_prompt(void) {
     while(1) {
         screen_clear();
         screen_init();
+        for(int i=0; welcome[i]; i++)
+            screen_put_char((SCREEN_COLS - 17)/2 + i, SCREEN_ROWS/2 - 3, welcome[i], 0x0B);
+        for(int i=0; prompt[i]; i++)
+            screen_put_char((SCREEN_COLS - 12)/2 + i, SCREEN_ROWS/2 - 2, prompt[i], 0x0F);
         for(int i=0; user_msg[i]; i++)
-            screen_put_char((SCREEN_COLS - 14)/2 + i, SCREEN_ROWS/2 - 1, user_msg[i], 0x0F);
+            screen_put_char((SCREEN_COLS - 14)/2 + i, SCREEN_ROWS/2, user_msg[i], 0x0F);
         for(int i=0; pass_msg[i]; i++)
-            screen_put_char((SCREEN_COLS - 10)/2 + i, SCREEN_ROWS/2 + 1, pass_msg[i], 0x0F);
+            screen_put_char((SCREEN_COLS - 10)/2 + i, SCREEN_ROWS/2 + 2, pass_msg[i], 0x0F);
 
         int idx = 0;
         while(idx < 31) {
@@ -23,11 +29,11 @@ void login_prompt(void) {
             if(c == '\b') {
                 if(idx > 0) {
                     idx--; 
-                    screen_put_char((SCREEN_COLS - 10)/2 + 10 + idx, SCREEN_ROWS/2 + 1, ' ', 0x0F);
+                    screen_put_char((SCREEN_COLS - 10)/2 + 10 + idx, SCREEN_ROWS/2 + 2, ' ', 0x0F);
                 }
                 continue;
             }
-            screen_put_char((SCREEN_COLS - 10)/2 + 10 + idx, SCREEN_ROWS/2 + 1, '*', 0x0F);
+            screen_put_char((SCREEN_COLS - 10)/2 + 10 + idx, SCREEN_ROWS/2 + 2, '*', 0x0F);
             input[idx++] = c;
         }
         input[idx] = '\0';

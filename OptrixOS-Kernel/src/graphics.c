@@ -1,8 +1,8 @@
 #include "graphics.h"
 #include <stdint.h>
 
-#define WIDTH 800
-#define HEIGHT 600
+#define WIDTH 1024
+#define HEIGHT 768
 static volatile uint8_t *VGA = (uint8_t *)0xA0000;
 
 void graphics_set_framebuffer(uint32_t addr) {
