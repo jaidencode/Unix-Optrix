@@ -45,11 +45,14 @@ qemu-system-x86_64 -hda disk.img
 
 ## Built-in terminal
 
-After boot a simple text terminal is available. The border is drawn in white and
-the background is blue. The terminal automatically scrolls as it fills. The
-following commands are implemented:
+After boot a simple text terminal is available. The screen now shows a title
+bar with a decorative border and a blinking yellow software cursor. The
+hardware text mode cursor is disabled so only the custom cursor is visible. The
+terminal automatically scrolls as it fills. The following commands are
+implemented:
 
 * `help`  - display available commands
 * `clear` - clear the screen
 * `echo`  - echo arbitrary text
+* `about` - display information about OptrixOS
 
