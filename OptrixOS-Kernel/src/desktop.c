@@ -11,6 +11,7 @@ static int icon_x = 50;
 static int icon_y = 50;
 static int dragging = 0;
 static int click_timer = 0;
+static window_t demo_win;
 
 static void draw_icon(void) {
     draw_rect(icon_x, icon_y, 32, 32, 0x07);
@@ -26,6 +27,8 @@ void desktop_init(void) {
     icon_x = 50;
     icon_y = 50;
     draw_icon();
+    window_init(&demo_win, 100, 100, 200, 150, "Demo");
+    window_draw(&demo_win, 0x07);
 }
 
 void desktop_run(void) {
@@ -79,9 +82,13 @@ void desktop_run(void) {
 
         if(mx != last_mx || my != last_my) {
             draw_rect(last_mx-2, last_my-2, 4, 4, DESKTOP_BG_COLOR);
-            last_mx = mx;
-            last_my = my;
         }
+
+        window_handle_mouse(&demo_win, mx, my, mouse_clicked());
+        window_draw(&demo_win, 0x07);
         draw_rect(mx-2,my-2,4,4,0x0F);
+
+        last_mx = mx;
+        last_my = my;
     }
 }

@@ -43,6 +43,6 @@ void screen_put_char(int col, int row, char c, uint8_t color) {
 }
 
 void screen_init(void) {
+    /* The desktop and terminal now start without a decorative border */
     screen_clear();
-    draw_border();
 }
