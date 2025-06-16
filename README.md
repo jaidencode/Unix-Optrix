@@ -11,6 +11,7 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Loads the kernel from the disk image into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
+- Uses the VESA linear framebuffer so the full 800x600 screen is accessible.
 - Bootloader prints progress messages while loading the kernel.
 - Displays a simple spinning logo for a few seconds before launching the
   terminal.

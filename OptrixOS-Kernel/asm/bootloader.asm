@@ -13,9 +13,19 @@ start:
     mov ss, ax
     mov sp, 0x7C00
 
-    ; Set VESA graphics mode 0x103 (800x600 256 colors)
+    ; Get VESA mode information for 0x103
+    mov ax, 0x4F01
+    mov cx, 0x103
+    mov di, mode_info
+    int 0x10
+    ; Save linear framebuffer address
+    mov si, mode_info
+    mov eax, [si + 0x28]
+    mov [fb_addr], eax
+
+    ; Set VESA graphics mode 0x4103 (800x600 256 colors, linear FB)
     mov ax, 0x4F02
-    mov bx, 0x103
+    mov bx, 0x4103
     int 0x10
 
     ; load kernel (assumes kernel starts at second sector)
@@ -47,6 +57,8 @@ protected_mode:
     mov ss, ax
     mov esp, 0x90000
 
+    mov ebx, [fb_addr]
+
     call dword 0x1000
 .halt:
     hlt
@@ -63,6 +75,9 @@ gdt_end:
 gdt_desc:
     dw gdt_end - gdt_start - 1
     dd gdt_start
+
+mode_info: times 256 db 0
+fb_addr:   dd 0
 
 BOOT_DRIVE: db 0
 

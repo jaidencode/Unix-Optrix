@@ -3,7 +3,11 @@
 
 #define WIDTH 800
 #define HEIGHT 600
-static volatile uint8_t *const VGA = (uint8_t *)0xA0000;
+static volatile uint8_t *VGA = (uint8_t *)0xA0000;
+
+void graphics_set_framebuffer(uint32_t addr) {
+    VGA = (volatile uint8_t *)addr;
+}
 
 void put_pixel(int x, int y, uint8_t color) {
     if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT)
