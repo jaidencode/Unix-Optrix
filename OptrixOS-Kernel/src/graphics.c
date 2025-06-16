@@ -1,8 +1,8 @@
 #include "graphics.h"
 #include <stdint.h>
 
-#define WIDTH 320
-#define HEIGHT 200
+#define WIDTH 800
+#define HEIGHT 600
 static volatile uint8_t *const VGA = (uint8_t *)0xA0000;
 
 void put_pixel(int x, int y, uint8_t color) {

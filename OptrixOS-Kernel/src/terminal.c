@@ -180,6 +180,11 @@ static void cmd_help(void) {
     print("dir         - list directory contents\n");
     print("cd <dir>    - change directory\n");
     print("pwd        - show current path\n");
+    print("cat <file>  - view file\n");
+    print("touch <file> - create file\n");
+    print("write <file> <text> - write text to file\n");
+    print("rm <file>   - delete file\n");
+    print("mv <a> <b>  - rename file\n");
     print("date       - show build date\n");
     print("whoami     - display current user\n");
     print("hello      - greet the user\n");
@@ -331,6 +336,71 @@ static void cmd_pwd(void) {
     putchar('\n');
 }
 
+static void cmd_cat(const char* name) {
+    fs_entry* f = fs_find_entry(current_dir, name);
+    if(f && !f->is_dir) {
+        print(f->content);
+        putchar('\n');
+    } else {
+        print("File not found\n");
+    }
+}
+
+static void cmd_touch(const char* name) {
+    if(fs_find_entry(current_dir, name)) {
+        print("File exists\n");
+        return;
+    }
+    if(fs_create_file(current_dir, name)) {
+        print("File created\n");
+    } else {
+        print("Cannot create file\n");
+    }
+}
+
+static void cmd_write(const char* args) {
+    int i=0;
+    while(args[i] && args[i]!=' ') i++;
+    if(args[i]==0) { print("Usage: write <file> <text>\n"); return; }
+    char fname[32];
+    int j=0; for(j=0;j<i && j<31;j++) fname[j]=args[j]; fname[j]=0;
+    const char* text = args+i+1;
+    fs_entry* f = fs_find_entry(current_dir, fname);
+    if(!f) f = fs_create_file(current_dir, fname);
+    if(f) {
+        int k=0; while(text[k] && k<255){ f->content[k]=text[k]; k++; }
+        f->content[k]='\0';
+        print("Written\n");
+    } else {
+        print("Cannot write file\n");
+    }
+}
+
+static void cmd_rm(const char* name) {
+    if(fs_delete_entry(current_dir, name))
+        print("Deleted\n");
+    else
+        print("No such file\n");
+}
+
+static void cmd_mv(const char* args) {
+    char src[32];
+    char dst[32];
+    int i=0; while(args[i] && args[i]!=' ') { src[i]=args[i]; i++; if(i>=31) break; }
+    src[i]=0;
+    if(args[i]==0){ print("Usage: mv <src> <dst>\n"); return; }
+    int j=0; i++; while(args[i] && j<31){ dst[j++]=args[i++]; }
+    dst[j]=0;
+    fs_entry* f = fs_find_entry(current_dir, src);
+    if(f) {
+        int k=0; while(dst[k] && k<31){ f->name[k]=dst[k]; k++; }
+        f->name[k]=0;
+        print("Renamed\n");
+    } else {
+        print("No such file\n");
+    }
+}
+
 static void execute(const char* line) {
     if(streq(line, "help")) {
         cmd_help();
@@ -356,6 +426,16 @@ static void execute(const char* line) {
         cmd_cd(line+3);
     } else if(streq(line, "pwd")) {
         cmd_pwd();
+    } else if(strprefix(line, "cat ")) {
+        cmd_cat(line+4);
+    } else if(strprefix(line, "touch ")) {
+        cmd_touch(line+6);
+    } else if(strprefix(line, "write ")) {
+        cmd_write(line+6);
+    } else if(strprefix(line, "rm ")) {
+        cmd_rm(line+3);
+    } else if(strprefix(line, "mv ")) {
+        cmd_mv(line+3);
     } else if(streq(line, "date")) {
         cmd_date();
     } else if(streq(line, "whoami")) {
