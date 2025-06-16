@@ -32,8 +32,17 @@ static uint8_t text_color = DEFAULT_TEXT_COLOR;
 static fs_entry* current_dir;
 static char current_path[32] = "/";
 
+static void redraw_buffer(void) {
+    for(int y=0; y<term_rows; y++)
+        for(int x=0; x<term_cols; x++)
+            screen_put_char_offset(x, y, text_buffer[y][x],
+                                  color_buffer[y][x], origin_x, origin_y);
+}
+
 void terminal_set_window(window_t *win) {
     term_window = win;
+    int old_x = origin_x;
+    int old_y = origin_y;
     origin_x = win->x + 2;
     origin_y = win->y + 14;
     int new_cols = (win->w - 4) / CHAR_WIDTH;
@@ -49,6 +58,9 @@ void terminal_set_window(window_t *win) {
                 text_buffer[y][x] = ' ';
                 color_buffer[y][x] = BACKGROUND_COLOR;
             }
+        redraw_buffer();
+    } else if(old_x != origin_x || old_y != origin_y) {
+        redraw_buffer();
     }
 }
 

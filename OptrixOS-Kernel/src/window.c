@@ -20,9 +20,9 @@ void window_init(window_t *win, int x, int y, int w, int h,
 }
 
 static void draw_buttons(int x, int y) {
-    draw_rounded_rect(x-36, y+2, 8, 8, 2, 0x04); /* close */
-    draw_rounded_rect(x-24, y+2, 8, 8, 2, 0x02); /* minimize */
-    draw_rounded_rect(x-12, y+2, 8, 8, 2, 0x03); /* maximize */
+    draw_rounded_rect(x-36, y+3, 6, 6, 3, 0x04); /* close */
+    draw_rounded_rect(x-24, y+3, 6, 6, 3, 0x02); /* minimize */
+    draw_rounded_rect(x-12, y+3, 6, 6, 3, 0x03); /* maximize */
 }
 
 void window_draw(window_t* win) {
@@ -41,7 +41,12 @@ void window_draw(window_t* win) {
     }
 
     int show_bar = !(win->state == 1 && mouse_get_y() > 2);
+    /* shadow */
+    draw_rounded_rect(x+2, y+2, w, h, 6, win->bg_color);
+    /* window body */
     draw_rounded_rect(x, y, w, h, 6, win->color);
+    /* border */
+    draw_rounded_rect(x, y, w, h, 6, 0x08);
     if(show_bar) {
         draw_rounded_rect(x, y, w, 14, 6, 0x01); /* title bar */
         if(win->title) {
