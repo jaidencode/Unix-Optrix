@@ -173,6 +173,7 @@ static void read_line(char* buf, size_t max, window_t *win) {
     while(idx < max-1) {
         mouse_update();
         window_handle_mouse(win, mouse_get_x(), mouse_get_y(), mouse_clicked());
+        if(!win->visible) { buf[0] = '\0'; break; }
         terminal_set_window(win);
         window_draw(win);
         mouse_draw(BACKGROUND_COLOR);
@@ -584,7 +585,9 @@ void terminal_run(window_t *win) {
     while(win->visible) {
         print("> ");
         read_line(buf, sizeof(buf), win);
-        execute(buf);
+        if(!win->visible) break;
+        if(buf[0])
+            execute(buf);
         uptime_counter++;
     }
 }
