@@ -1,10 +1,18 @@
 #include "screen.h"
-#include "graphics.h"
+#include <stdint.h>
+
+#define WIDTH 80
+#define HEIGHT 25
+
+static volatile uint16_t* const VIDEO = (uint16_t*)0xB8000;
 
 void screen_init(void) {
-    draw_rect(0, 0, 320, 200, 0); // clear to black
-    draw_rect(0, 0, 320, 1, 15);   // top
-    draw_rect(0, 199, 320, 1, 15); // bottom
-    draw_rect(0, 0, 1, 200, 15);   // left
-    draw_rect(319, 0, 1, 200, 15); // right
+    for(int y = 0; y < HEIGHT; y++) {
+        for(int x = 0; x < WIDTH; x++) {
+            uint8_t color = 0x1;              /* blue background */
+            if(y == 0 || y == HEIGHT-1 || x == 0 || x == WIDTH-1)
+                color = 0x0F;                 /* white border */
+            VIDEO[y*WIDTH + x] = ((uint16_t)color << 8) | ' ';
+        }
+    }
 }
