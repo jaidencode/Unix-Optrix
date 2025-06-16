@@ -48,7 +48,8 @@ qemu-system-x86_64 -hda disk.img
 
 ## Built-in terminal
 
-After boot a simple text terminal is available. The screen now runs in a
+After boot a login prompt asks for the admin password (`admin1`). Once logged
+in a simple text terminal is available. The screen now runs in a
 high‑resolution 800x600 graphics mode with characters rendered at a 21‑pixel
 size. A title bar with a box-drawing border is drawn using VGA graphics
 characters. The background is white with black text while the cursor is
@@ -80,4 +81,7 @@ The following commands are implemented:
 * `mkdir`   - create a directory
 * `rmdir`   - remove an empty directory
   (directory capacity has been increased to support more entries)
+* `cp`      - copy a file
+* `ls`      - alias of `dir`
+* `shutdown`- halt the system
 
