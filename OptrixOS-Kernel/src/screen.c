@@ -11,6 +11,7 @@ int SCREEN_ROWS = 0;
 
 void screen_clear(void) {
     draw_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, BACKGROUND_COLOR);
+    graphics_flush();
 }
 
 void screen_update_metrics(void) {

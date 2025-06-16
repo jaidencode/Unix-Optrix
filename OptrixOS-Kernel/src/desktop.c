@@ -16,6 +16,19 @@ static icon_t icons[MAX_ICONS];
 static int icon_count = 0;
 static int click_timer = 0;
 static int last_clicked = -1;
+static const char* active_title = "desktop";
+
+void desktop_draw_taskbar(void) {
+    const int h = 14;
+    draw_rect(0, SCREEN_HEIGHT - h, SCREEN_WIDTH, h, 0x03);
+    if(active_title) {
+        for(int i=0; active_title[i]; i++)
+            screen_put_char((4 + i), (SCREEN_HEIGHT - h + 2 - OFFSET_Y)/CHAR_HEIGHT,
+                            active_title[i], 0x0F);
+    }
+}
+
+void desktop_set_active_title(const char* t) { active_title = t; }
 
 static void terminal_exec(window_t *win) {
     terminal_set_window(win);
@@ -56,6 +69,7 @@ void desktop_init(void) {
         }
     }
     draw_icons();
+    desktop_draw_taskbar();
     exec_init();
     exec_register("terminal.opt", terminal_exec);
 }
@@ -88,7 +102,7 @@ void desktop_run(void) {
             if(click_timer>0) click_timer++;
             if(click_timer>30){ click_timer=0; last_clicked=-1; }
         }
-
+        desktop_draw_taskbar();
         mouse_draw(DESKTOP_BG_COLOR);
     }
 }

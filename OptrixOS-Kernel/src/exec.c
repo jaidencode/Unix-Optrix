@@ -38,7 +38,10 @@ int exec_run(const char* name) {
             int y = (SCREEN_HEIGHT - h) / 2;
             window_init(&win, x, y, w, h, name, 0x07, 0x17);
             window_draw(&win);
+            extern void desktop_set_active_title(const char*);
+            desktop_set_active_title(name);
             table[i].func(&win);
+            desktop_set_active_title("desktop");
             return 1;
         }
     }
