@@ -5,79 +5,79 @@
 #include <stddef.h>
 
 static void fs_init(void);
+static int streq(const char* a, const char* b) { while(*a && *b) { if(*a!=*b) return 0; a++; b++; } return *a==*b; }
+static int strprefix(const char* str, const char* pre) { while(*pre) { if(*str!=*pre) return 0; str++; pre++; } return 1; }
 
-static int streq(const char* a, const char* b) {
-    while(*a && *b) {
-        if(*a != *b) return 0;
-        a++; b++;
-    }
-    return *a == *b;
-}
-
-static int strprefix(const char* str, const char* pre) {
-    while(*pre) {
-        if(*str != *pre) return 0;
-        str++; pre++;
-    }
-    return 1;
-}
-
-#define WIDTH 80
-#define HEIGHT 50
-#define BORDER_COLOR 0x0F
+#define WIDTH SCREEN_COLS
+#define HEIGHT SCREEN_ROWS
 #define DEFAULT_TEXT_COLOR 0x0B
-#define CURSOR_COLOR 0x0C
+#define CURSOR_COLOR 0x0E
 #define CURSOR_CHAR '_'
 
-static volatile uint16_t* const VIDEO = (uint16_t*)0xB8000;
-static int row = 1;
-static int col = 1;
+static char text_buffer[HEIGHT][WIDTH];
+static uint8_t color_buffer[HEIGHT][WIDTH];
+
+static int row = 0;
+static int col = 0;
 static int cursor_on = 0;
 static uint8_t text_color = DEFAULT_TEXT_COLOR;
 
 static void draw_cursor(int visible) {
-    char ch = visible ? CURSOR_CHAR : ' ';
-    uint8_t color = visible ? CURSOR_COLOR : 0x00;
-    VIDEO[row * WIDTH + col] = ((uint16_t)color << 8) | ch;
+    if(visible)
+        screen_put_char(col, row, CURSOR_CHAR, CURSOR_COLOR);
+    else
+        screen_put_char(col, row, text_buffer[row][col], color_buffer[row][col]);
 }
 
 static void put_entry_at(char c, uint8_t color, int x, int y) {
-    VIDEO[y * WIDTH + x] = ((uint16_t)color << 8) | c;
+    if(x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT)
+        return;
+    text_buffer[y][x] = c;
+    color_buffer[y][x] = color;
+    screen_put_char(x, y, c, color);
 }
 
 static void scroll(void) {
-    for(int y=2; y<HEIGHT-1; y++) {
-        for(int x=1; x<WIDTH-1; x++) {
-            VIDEO[(y-1)*WIDTH + x] = VIDEO[y*WIDTH + x];
+    for(int y=1; y<HEIGHT; y++) {
+        for(int x=0; x<WIDTH; x++) {
+            text_buffer[y-1][x] = text_buffer[y][x];
+            color_buffer[y-1][x] = color_buffer[y][x];
+            screen_put_char(x, y-1, text_buffer[y][x], color_buffer[y][x]);
         }
     }
-    for(int x=1; x<WIDTH-1; x++)
-        VIDEO[(HEIGHT-2)*WIDTH + x] = ((uint16_t)0x00 << 8) | ' ';
+    for(int x=0; x<WIDTH; x++) {
+        text_buffer[HEIGHT-1][x] = ' ';
+        color_buffer[HEIGHT-1][x] = 0x00;
+        screen_put_char(x, HEIGHT-1, ' ', 0x00);
+    }
 }
 
 static void putchar(char c) {
     draw_cursor(0);
-    if(c=='\n') {
+    if(c == '\n') {
+        col = 0;
         row++;
-        col=1;
     } else {
         put_entry_at(c, text_color, col, row);
         col++;
-        if(col >= WIDTH-1) {
-            col=1;
+        if(col >= WIDTH) {
+            col = 0;
             row++;
         }
     }
-    if(row >= HEIGHT-1) {
+    if(row >= HEIGHT) {
         scroll();
-        row = HEIGHT-2;
+        row = HEIGHT-1;
     }
     draw_cursor(1);
 }
 
 void terminal_init(void) {
-    row = 1;
-    col = 1;
+    for(int y=0; y<HEIGHT; y++)
+        for(int x=0; x<WIDTH; x++)
+            put_entry_at(' ', 0x00, x, y);
+    row = 0;
+    col = 0;
     draw_cursor(1);
     fs_init();
 }
@@ -138,16 +138,21 @@ static void read_line(char* buf, size_t max) {
         }
         if(c == '\b') {
             if(idx > 0) {
-                draw_cursor(0);         /* remove cursor from current position */
-                col--;                  /* move back one column */
-                idx--;                  /* update buffer index */
-                put_entry_at(' ', 0x00, col, row); /* clear character */
-                draw_cursor(1);         /* redraw cursor at new position */
+                draw_cursor(0);
+                if(col == 0) {
+                    col = WIDTH-1;
+                    row--;
+                } else {
+                    col--;
+                }
+                idx--;
+                put_entry_at(' ', 0x00, col, row);
+                draw_cursor(1);
             }
             continue;
         }
         if(c == '\t') {
-            int spaces = 4 - ((col - 1) % 4);
+            int spaces = 4 - (col % 4);
             for(int s=0; s<spaces && idx < max-1; s++) {
                 putchar(' ');
                 buf[idx++] = ' ';
@@ -178,10 +183,10 @@ static void cmd_help(void) {
 }
 
 static void cmd_clear(void) {
-    for(int y=1; y<HEIGHT-1; y++)
-        for(int x=1; x<WIDTH-1; x++)
-            VIDEO[y*WIDTH + x] = ((uint16_t)0x00 << 8) | ' ';
-    row=1; col=1;
+    for(int y=0; y<HEIGHT; y++)
+        for(int x=0; x<WIDTH; x++)
+            put_entry_at(' ', 0x00, x, y);
+    row=0; col=0;
 }
 
 static void cmd_echo(const char* args) {

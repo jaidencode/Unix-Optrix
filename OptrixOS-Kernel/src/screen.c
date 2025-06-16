@@ -1,42 +1,47 @@
 #include "screen.h"
-#include "ports.h"
+#include "graphics.h"
+#include "font/font8x8_basic.h"
 #include <stdint.h>
 
-#define WIDTH 80
-#define HEIGHT 50
+#define SCREEN_WIDTH 320
+#define SCREEN_HEIGHT 200
+#define CHAR_WIDTH 8
+#define CHAR_HEIGHT 8
+#define OFFSET_X 8
+#define OFFSET_Y 8
 
-static volatile uint16_t* const VIDEO = (uint16_t*)0xB8000;
+void screen_clear(void) {
+    draw_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00);
+}
 
-void screen_init(void) {
-    const char tl = '\xC9';
-    const char tr = '\xBB';
-    const char bl = '\xC8';
-    const char br = '\xBC';
-    const char hline = '\xCD';
-    const char vline = '\xBA';
+static void draw_border(void) {
+    for(int x=0; x<SCREEN_WIDTH; x++) {
+        put_pixel(x, 0, 0x0F);
+        put_pixel(x, SCREEN_HEIGHT-1, 0x0F);
+    }
+    for(int y=0; y<SCREEN_HEIGHT; y++) {
+        put_pixel(0, y, 0x0F);
+        put_pixel(SCREEN_WIDTH-1, y, 0x0F);
+    }
+}
 
-    for(int y = 0; y < HEIGHT; y++) {
-        for(int x = 0; x < WIDTH; x++) {
-            uint8_t color = 0x00;             /* black background */
-            char ch = ' ';
-            if(y == 0 && x == 0) { ch = tl; color = 0x0F; }
-            else if(y == 0 && x == WIDTH-1) { ch = tr; color = 0x0F; }
-            else if(y == HEIGHT-1 && x == 0) { ch = bl; color = 0x0F; }
-            else if(y == HEIGHT-1 && x == WIDTH-1) { ch = br; color = 0x0F; }
-            else if(y == 0 || y == HEIGHT-1) { ch = hline; color = 0x0F; }
-            else if(x == 0 || x == WIDTH-1) { ch = vline; color = 0x0F; }
-            VIDEO[y*WIDTH + x] = ((uint16_t)color << 8) | (unsigned char)ch;
+void screen_put_char(int col, int row, char c, uint8_t color) {
+    if(c < 0) c = '?';
+    const uint8_t *glyph = font8x8_basic[(unsigned char)c];
+    int x = OFFSET_X + col * CHAR_WIDTH;
+    int y = OFFSET_Y + row * CHAR_HEIGHT;
+    for(int cy=0; cy<CHAR_HEIGHT; cy++) {
+        uint8_t line = glyph[cy];
+        for(int cx=0; cx<CHAR_WIDTH; cx++) {
+            if(line & (1 << cx))
+                put_pixel(x+cx, y+cy, color);
+            else
+                put_pixel(x+cx, y+cy, 0x00);
         }
     }
+}
 
-    const char *title = "OptrixOS Terminal";
-    int len = 0;
-    while(title[len]) len++;
-    int start = (WIDTH - len) / 2;
-    for(int i = 0; title[i]; i++)
-        VIDEO[start + i] = ((uint16_t)0x0F << 8) | title[i];
-
-    /* hide hardware cursor */
-    outb(0x3D4, 0x0A);
-    outb(0x3D5, 0x20);
+void screen_init(void) {
+    screen_clear();
+    draw_border();
 }
