@@ -24,7 +24,7 @@ static int strprefix(const char* str, const char* pre) {
 #define HEIGHT 25
 #define BORDER_COLOR 0x0F
 #define TEXT_COLOR 0x0E
-#define CURSOR_COLOR 0x1E
+#define CURSOR_COLOR 0x0E
 #define CURSOR_CHAR '_'
 
 static volatile uint16_t* const VIDEO = (uint16_t*)0xB8000;
@@ -34,7 +34,7 @@ static int cursor_on = 0;
 
 static void draw_cursor(int visible) {
     char ch = visible ? CURSOR_CHAR : ' ';
-    uint8_t color = visible ? CURSOR_COLOR : 0x01;
+    uint8_t color = visible ? CURSOR_COLOR : 0x00;
     VIDEO[row * WIDTH + col] = ((uint16_t)color << 8) | ch;
 }
 
@@ -49,7 +49,7 @@ static void scroll(void) {
         }
     }
     for(int x=1; x<WIDTH-1; x++)
-        VIDEO[(HEIGHT-2)*WIDTH + x] = ((uint16_t)0x01 << 8) | ' ';
+        VIDEO[(HEIGHT-2)*WIDTH + x] = ((uint16_t)0x00 << 8) | ' ';
 }
 
 static void putchar(char c) {
@@ -133,7 +133,7 @@ static void cmd_help(void) {
 static void cmd_clear(void) {
     for(int y=1; y<HEIGHT-1; y++)
         for(int x=1; x<WIDTH-1; x++)
-            VIDEO[y*WIDTH + x] = ((uint16_t)0x01 << 8) | ' ';
+            VIDEO[y*WIDTH + x] = ((uint16_t)0x00 << 8) | ' ';
     row=1; col=1;
 }
 
