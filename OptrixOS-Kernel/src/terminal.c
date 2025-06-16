@@ -25,6 +25,10 @@ static uint8_t text_color = DEFAULT_TEXT_COLOR;
 static fs_entry* current_dir;
 static char current_path[32] = "/";
 
+#define HISTORY_SIZE 10
+static char history[HISTORY_SIZE][64];
+static int history_index = 0;
+
 static void draw_cursor(int visible) {
     if(visible)
         screen_put_char(col, row, CURSOR_CHAR, CURSOR_COLOR);
@@ -193,6 +197,7 @@ static void cmd_help(void) {
     print("mv <a> <b>  - rename file\n");
     print("mkdir <name> - create directory\n");
     print("rmdir <name> - remove directory\n");
+    print("history     - show command history\n");
     print("date       - show build date\n");
     print("whoami     - display current user\n");
     print("hello      - greet the user\n");
@@ -287,6 +292,15 @@ static void cmd_uptime(void) {
     print("Uptime: ");
     print_int(uptime_counter);
     print(" ticks\n");
+}
+
+static void cmd_history(void) {
+    for(int i=0; i<HISTORY_SIZE; i++) {
+        if(history[i][0]) {
+            print(history[i]);
+            putchar('\n');
+        }
+    }
 }
 
 #include "fs.h"
@@ -518,6 +532,8 @@ static void execute(const char* line) {
         cmd_hello();
     } else if(streq(line, "uptime")) {
         cmd_uptime();
+    } else if(streq(line, "history")) {
+        cmd_history();
     } else if(streq(line, "ls")) {
         cmd_dir();
     } else if(line[0]) {
@@ -530,6 +546,11 @@ void terminal_run(void) {
     while(1) {
         print("> ");
         read_line(buf, sizeof(buf));
+        if(buf[0]) {
+            int i=0; while(buf[i] && i<63) { history[history_index][i]=buf[i]; i++; }
+            history[history_index][i]='\0';
+            history_index = (history_index + 1) % HISTORY_SIZE;
+        }
         execute(buf);
         uptime_counter++;
     }
