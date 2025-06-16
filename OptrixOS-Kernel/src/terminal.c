@@ -344,7 +344,7 @@ static void cmd_pwd(void) {
 static void cmd_cat(const char* name) {
     fs_entry* f = fs_find_entry(current_dir, name);
     if(f && !f->is_dir) {
-        print(f->content);
+        print(fs_read_file(f));
         putchar('\n');
     } else {
         print("File not found\n");
@@ -388,17 +388,28 @@ static void cmd_rmdir(const char* name) {
 }
 
 static void cmd_write(const char* args) {
-    int i=0;
-    while(args[i] && args[i]!=' ') i++;
-    if(args[i]==0) { print("Usage: write <file> <text>\n"); return; }
+    int i = 0;
+    while(args[i] && args[i] != ' ') i++;
+    if(args[i]==0 || args[i+1] != '"') {
+        print("Usage: write <file> \"text\"\n");
+        return;
+    }
     char fname[32];
     int j=0; for(j=0;j<i && j<31;j++) fname[j]=args[j]; fname[j]=0;
-    const char* text = args+i+1;
+    i++; /* skip space */
+    if(args[i] != '"') { print("Usage: write <file> \"text\"\n"); return; }
+    i++; /* skip opening quote */
+    char textbuf[256];
+    int k=0;
+    while(args[i] && args[i] != '"' && k<255) {
+        textbuf[k++] = args[i++];
+    }
+    textbuf[k] = '\0';
+    if(args[i] != '"') { print("Usage: write <file> \"text\"\n"); return; }
     fs_entry* f = fs_find_entry(current_dir, fname);
     if(!f) f = fs_create_file(current_dir, fname);
     if(f) {
-        int k=0; while(text[k] && k<255){ f->content[k]=text[k]; k++; }
-        f->content[k]='\0';
+        fs_write_file(f, textbuf);
         print("Written\n");
     } else {
         print("Cannot write file\n");
