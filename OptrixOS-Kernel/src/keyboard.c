@@ -11,9 +11,9 @@ static const char sc_ascii[] = {
 };
 
 char keyboard_getchar(void) {
-    uint8_t sc = 0;
-    while(!(inb(0x64) & 1)) {}
-    sc = inb(0x60);
+    if(!(inb(0x64) & 1))
+        return 0;
+    uint8_t sc = inb(0x60);
     if(sc & 0x80)
         return 0;
     if(sc >= sizeof(sc_ascii))
