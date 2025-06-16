@@ -3,6 +3,7 @@
 #include "screen.h"
 
 #define MAX_TASKS 10
+#define TASKBAR_COLOR 0x01
 
 static window_t *tasks[MAX_TASKS];
 static int task_count = 0;
@@ -33,7 +34,7 @@ void taskbar_unregister(window_t *win) {
 
 void taskbar_draw(void) {
     const int bar_h = 16;
-    draw_rect(0, SCREEN_HEIGHT - bar_h, SCREEN_WIDTH, bar_h, 0x01);
+    draw_rect(0, SCREEN_HEIGHT - bar_h, SCREEN_WIDTH, bar_h, TASKBAR_COLOR);
     int w = SCREEN_WIDTH / (task_count > 0 ? task_count : 1);
     for(int i=0;i<task_count;i++) {
         int x = i * w;
