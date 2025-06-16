@@ -7,6 +7,7 @@
 static int mx = SCREEN_WIDTH/2;
 static int my = SCREEN_HEIGHT/2;
 static int clicked = 0;
+static int right_clicked = 0;
 static int mouse_present = 0;
 static int cursor_visible = 1;
 static int prev_x = -1, prev_y = -1;
@@ -31,6 +32,7 @@ void mouse_draw(uint8_t bg_color) {
     } else {
         prev_x = prev_y = -1;
     }
+    graphics_flush();
 }
 
 static void mouse_wait_input(void) {
@@ -90,6 +92,7 @@ void mouse_update(void) {
             mx += dx;
             my += dy;
             clicked = packet[0] & 1;
+            right_clicked = (packet[0] >> 1) & 1;
             if(mx < 0) mx = 0;
             if(my < 0) my = 0;
             if(mx >= SCREEN_WIDTH) mx = SCREEN_WIDTH-1;
@@ -102,3 +105,4 @@ void mouse_update(void) {
 int mouse_get_x(void) { return mx; }
 int mouse_get_y(void) { return my; }
 int mouse_clicked(void) { return clicked; }
+int mouse_right_clicked(void) { return right_clicked; }

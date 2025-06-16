@@ -2,11 +2,16 @@
 #include "graphics.h"
 #include "screen.h"
 #include "mouse.h"
+#include <stddef.h>
 
 static int drag = 0;
 static int resize = 0;
 static int prev_mx, prev_my;
 static int saved_x, saved_y, saved_w, saved_h;
+
+static int menu_visible = 0;
+static int menu_x, menu_y;
+static window_t *menu_win = NULL;
 
 void window_init(window_t *win, int x, int y, int w, int h,
                  const char *title, uint8_t color, uint8_t bg_color) {
@@ -57,15 +62,37 @@ void window_draw(window_t* win) {
         }
         draw_buttons(x+w, y);
     }
+    if(menu_visible && win == menu_win) {
+        draw_rect(menu_x, menu_y, 80, 12, 0x01);
+        const char *c = "Close";
+        for(int i=0;c[i];i++)
+            screen_put_char((menu_x+2-OFFSET_X)/CHAR_WIDTH + i,
+                            (menu_y+2-OFFSET_Y)/CHAR_HEIGHT, c[i], 0x0F);
+    }
 }
 
-void window_handle_mouse(window_t *win, int mx, int my, int click) {
+void window_handle_mouse(window_t *win, int mx, int my, int click, int rclick) {
     if(!win || !win->visible) return;
 
     int x = win->x; int y = win->y; int w = win->w; int h = win->h;
     if(win->state == 1) { x = 0; y = 0; w = SCREEN_WIDTH; h = SCREEN_HEIGHT; }
     int show_bar = !(win->state == 1 && mouse_get_y() > 2);
 
+    if(rclick && show_bar && my >= y && my < y+14) {
+        menu_visible = 1;
+        menu_x = mx;
+        menu_y = my;
+        menu_win = win;
+        return;
+    }
+    if(click && menu_visible && win == menu_win &&
+       mx >= menu_x && mx < menu_x+80 && my >= menu_y && my < menu_y+12) {
+        draw_rect(win->x, win->y, win->w, win->h, win->bg_color);
+        win->visible = 0;
+        win->px = win->py = -1;
+        menu_visible = 0;
+        return;
+    }
     if(click && !drag && !resize) {
         if(show_bar && my >= y && my < y+14 && mx >= x+w-36 && mx < x+w-26) {
             draw_rect(win->x, win->y, win->w, win->h, win->bg_color);
@@ -97,5 +124,6 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
         prev_mx = mx; prev_my = my;
     } else {
         drag = resize = 0;
+        if(!rclick) menu_visible = 0;
     }
 }

@@ -2,6 +2,7 @@
 #include "keyboard.h"
 #include "screen.h"
 #include "mouse.h"
+#include "desktop.h"
 #include "fs.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -172,9 +173,11 @@ static void read_line(char* buf, size_t max, window_t *win) {
     mouse_draw(BACKGROUND_COLOR);
     while(idx < max-1) {
         mouse_update();
-        window_handle_mouse(win, mouse_get_x(), mouse_get_y(), mouse_clicked());
+        window_handle_mouse(win, mouse_get_x(), mouse_get_y(), mouse_clicked(),
+                            mouse_right_clicked());
         terminal_set_window(win);
         window_draw(win);
+        desktop_draw_taskbar();
         mouse_draw(BACKGROUND_COLOR);
         char c = keyboard_getchar();
         if(!c) {
@@ -220,6 +223,7 @@ static void read_line(char* buf, size_t max, window_t *win) {
         buf[idx++] = c;
     }
     draw_cursor(0);
+    desktop_draw_taskbar();
     mouse_draw(BACKGROUND_COLOR);
     buf[idx] = '\0';
 }
@@ -580,6 +584,7 @@ static void execute(const char* line) {
 void terminal_run(window_t *win) {
     char buf[128];
     mouse_set_visible(1);
+    desktop_draw_taskbar();
     mouse_draw(BACKGROUND_COLOR);
     while(win->visible) {
         print("> ");

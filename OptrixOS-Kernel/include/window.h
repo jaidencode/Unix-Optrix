@@ -16,6 +16,6 @@ typedef struct {
 void window_init(window_t *win, int x, int y, int w, int h,
                  const char *title, uint8_t color, uint8_t bg_color);
 void window_draw(window_t* win);
-void window_handle_mouse(window_t *win, int mx, int my, int click);
+void window_handle_mouse(window_t *win, int mx, int my, int click, int rclick);
 
 #endif
