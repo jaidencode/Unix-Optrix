@@ -77,4 +77,6 @@ The following commands are implemented:
 * `write`   - write text to a file
 * `rm`      - delete a file
 * `mv`      - rename a file
+* `mkdir`   - create a directory
+* `rmdir`   - remove an empty directory
 

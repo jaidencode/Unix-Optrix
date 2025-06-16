@@ -9,7 +9,7 @@ static int streq(const char* a, const char* b) {
     return *a == *b;
 }
 
-#define MAX_ROOT_ENTRIES 10
+#define MAX_ROOT_ENTRIES 20
 static fs_entry root_entries[MAX_ROOT_ENTRIES];
 static int root_count = 0;
 
@@ -22,6 +22,11 @@ static fs_entry docs_entries[MAX_DOC_ENTRIES];
 static int docs_count = 0;
 
 static fs_entry root_dir = {"/", 1, NULL, root_entries, 0, ""};
+
+#define MAX_EXTRA_DIRS 5
+#define MAX_EXTRA_DIR_ENTRIES 5
+static fs_entry extra_dir_entries[MAX_EXTRA_DIRS][MAX_EXTRA_DIR_ENTRIES];
+static int extra_dir_used = 0;
 
 fs_entry* fs_get_root(void) {
     return &root_dir;
@@ -73,6 +78,22 @@ fs_entry* fs_create_file(fs_entry* dir, const char* name) {
     e->children = NULL;
     e->child_count = 0;
     e->content[0]='\0';
+    return e;
+}
+
+fs_entry* fs_create_dir(fs_entry* dir, const char* name) {
+    if(dir->child_count >= MAX_ROOT_ENTRIES) return 0;
+    if(extra_dir_used >= MAX_EXTRA_DIRS) return 0;
+    fs_entry* e = &dir->children[dir->child_count++];
+    for(int i=0;i<32;i++){e->name[i]=0;}
+    int idx=0; while(name[idx] && idx<31){ e->name[idx]=name[idx]; idx++; }
+    e->name[idx]='\0';
+    e->is_dir = 1;
+    e->parent = dir;
+    e->children = extra_dir_entries[extra_dir_used];
+    e->child_count = 0;
+    e->content[0]='\0';
+    extra_dir_used++;
     return e;
 }
 
