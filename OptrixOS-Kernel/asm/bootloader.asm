@@ -12,6 +12,8 @@ start:
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
+    ; BIOS passes boot drive in DL. Save it for disk reads
+    mov [BOOT_DRIVE], dl
 
     ; Get VESA mode information for 0x103
     mov ax, 0x4F01
