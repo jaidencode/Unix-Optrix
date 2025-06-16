@@ -3,12 +3,6 @@
 #include "font/font8x8_basic.h"
 #include <stdint.h>
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
-#define CHAR_WIDTH 21
-#define CHAR_HEIGHT 21
-#define OFFSET_X 8
-#define OFFSET_Y 8
 
 void screen_clear(void) {
     draw_rect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, 0x00);
@@ -17,10 +11,14 @@ void screen_clear(void) {
 static void draw_border(void) {
     for(int x=0; x<SCREEN_WIDTH; x++) {
         put_pixel(x, 0, 0x0F);
+        put_pixel(x, 1, 0x09);
+        put_pixel(x, SCREEN_HEIGHT-2, 0x09);
         put_pixel(x, SCREEN_HEIGHT-1, 0x0F);
     }
     for(int y=0; y<SCREEN_HEIGHT; y++) {
         put_pixel(0, y, 0x0F);
+        put_pixel(1, y, 0x09);
+        put_pixel(SCREEN_WIDTH-2, y, 0x09);
         put_pixel(SCREEN_WIDTH-1, y, 0x0F);
     }
 }

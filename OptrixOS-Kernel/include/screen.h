@@ -3,8 +3,14 @@
 
 #include <stdint.h>
 
-#define SCREEN_COLS 37
-#define SCREEN_ROWS 27
+#define SCREEN_WIDTH 800
+#define SCREEN_HEIGHT 600
+#define CHAR_WIDTH 12
+#define CHAR_HEIGHT 16
+#define OFFSET_X 8
+#define OFFSET_Y 8
+#define SCREEN_COLS ((SCREEN_WIDTH - 2*OFFSET_X) / CHAR_WIDTH)
+#define SCREEN_ROWS ((SCREEN_HEIGHT - 2*OFFSET_Y) / CHAR_HEIGHT)
 
 void screen_init(void);
 void screen_clear(void);
