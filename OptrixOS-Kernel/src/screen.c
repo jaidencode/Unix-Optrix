@@ -9,18 +9,20 @@ void screen_clear(void) {
 }
 
 static void draw_border(void) {
-    /* Simple black border on white background */
+    /* Fancy white border with a grey inner line */
+    const uint8_t outer = 0x0F; /* bright white */
+    const uint8_t inner = 0x08; /* light grey  */
     for(int x=0; x<SCREEN_WIDTH; x++) {
-        put_pixel(x, 0, 0x00);               /* outer */
-        put_pixel(x, 1, 0x00);               /* inner */
-        put_pixel(x, SCREEN_HEIGHT-2, 0x00);
-        put_pixel(x, SCREEN_HEIGHT-1, 0x00);
+        put_pixel(x, 0, outer);
+        put_pixel(x, 1, inner);
+        put_pixel(x, SCREEN_HEIGHT-2, inner);
+        put_pixel(x, SCREEN_HEIGHT-1, outer);
     }
     for(int y=0; y<SCREEN_HEIGHT; y++) {
-        put_pixel(0, y, 0x00);
-        put_pixel(1, y, 0x00);
-        put_pixel(SCREEN_WIDTH-2, y, 0x00);
-        put_pixel(SCREEN_WIDTH-1, y, 0x00);
+        put_pixel(0, y, outer);
+        put_pixel(1, y, inner);
+        put_pixel(SCREEN_WIDTH-2, y, inner);
+        put_pixel(SCREEN_WIDTH-1, y, outer);
     }
 }
 

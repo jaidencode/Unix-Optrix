@@ -12,7 +12,7 @@
 #define SCREEN_COLS ((SCREEN_WIDTH - 2*OFFSET_X) / CHAR_WIDTH)
 #define SCREEN_ROWS ((SCREEN_HEIGHT - 2*OFFSET_Y) / CHAR_HEIGHT)
 
-#define BACKGROUND_COLOR 0x0F
+#define BACKGROUND_COLOR 0x00
 
 void screen_init(void);
 void screen_clear(void);
