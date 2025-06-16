@@ -12,15 +12,18 @@ static int origin_y = OFFSET_Y + 14; /* space for title bar */
 static int streq(const char* a, const char* b) { while(*a && *b) { if(*a!=*b) return 0; a++; b++; } return *a==*b; }
 static int strprefix(const char* str, const char* pre) { while(*pre) { if(*str!=*pre) return 0; str++; pre++; } return 1; }
 
-#define WIDTH SCREEN_COLS
-#define HEIGHT SCREEN_ROWS
+#define MAX_COLS 80
+#define MAX_ROWS 60
 #define DEFAULT_TEXT_COLOR 0x0F
 #define CURSOR_COLOR 0x0E
 #define BACKGROUND_COLOR 0x00
 #define CURSOR_CHAR '_'
 
-static char text_buffer[HEIGHT][WIDTH];
-static uint8_t color_buffer[HEIGHT][WIDTH];
+static char text_buffer[MAX_ROWS][MAX_COLS];
+static uint8_t color_buffer[MAX_ROWS][MAX_COLS];
+static int term_cols = 0;
+static int term_rows = 0;
+static window_t *term_window = NULL;
 
 static int row = 0;
 static int col = 0;
@@ -30,8 +33,23 @@ static fs_entry* current_dir;
 static char current_path[32] = "/";
 
 void terminal_set_window(window_t *win) {
+    term_window = win;
     origin_x = win->x + 2;
     origin_y = win->y + 14;
+    int new_cols = (win->w - 4) / CHAR_WIDTH;
+    if(new_cols > MAX_COLS) new_cols = MAX_COLS;
+    int new_rows = (win->h - 16) / CHAR_HEIGHT;
+    if(new_rows > MAX_ROWS) new_rows = MAX_ROWS;
+    if(new_cols != term_cols || new_rows != term_rows) {
+        term_cols = new_cols;
+        term_rows = new_rows;
+        row = col = 0;
+        for(int y=0;y<MAX_ROWS;y++)
+            for(int x=0;x<MAX_COLS;x++) {
+                text_buffer[y][x] = ' ';
+                color_buffer[y][x] = BACKGROUND_COLOR;
+            }
+    }
 }
 
 static void draw_cursor(int visible) {
@@ -44,7 +62,7 @@ static void draw_cursor(int visible) {
 }
 
 static void put_entry_at(char c, uint8_t color, int x, int y) {
-    if(x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT)
+    if(x < 0 || x >= term_cols || y < 0 || y >= term_rows)
         return;
     text_buffer[y][x] = c;
     color_buffer[y][x] = color;
@@ -52,8 +70,8 @@ static void put_entry_at(char c, uint8_t color, int x, int y) {
 }
 
 static void scroll(void) {
-    for(int y=1; y<HEIGHT; y++) {
-        for(int x=0; x<WIDTH; x++) {
+    for(int y=1; y<term_rows; y++) {
+        for(int x=0; x<term_cols; x++) {
             text_buffer[y-1][x] = text_buffer[y][x];
             color_buffer[y-1][x] = color_buffer[y][x];
             screen_put_char_offset(x, y-1,
@@ -61,10 +79,10 @@ static void scroll(void) {
                                   origin_x, origin_y);
         }
     }
-    for(int x=0; x<WIDTH; x++) {
-        text_buffer[HEIGHT-1][x] = ' ';
-        color_buffer[HEIGHT-1][x] = BACKGROUND_COLOR;
-        screen_put_char_offset(x, HEIGHT-1, ' ', BACKGROUND_COLOR,
+    for(int x=0; x<term_cols; x++) {
+        text_buffer[term_rows-1][x] = ' ';
+        color_buffer[term_rows-1][x] = BACKGROUND_COLOR;
+        screen_put_char_offset(x, term_rows-1, ' ', BACKGROUND_COLOR,
                               origin_x, origin_y);
     }
 }
@@ -77,22 +95,22 @@ static void putchar(char c) {
     } else {
         put_entry_at(c, text_color, col, row);
         col++;
-        if(col >= WIDTH) {
+        if(col >= term_cols) {
             col = 0;
             row++;
         }
     }
-    if(row >= HEIGHT) {
+    if(row >= term_rows) {
         scroll();
-        row = HEIGHT-1;
+        row = term_rows-1;
     }
     draw_cursor(1);
 }
 
 void terminal_init(void) {
     keyboard_flush();
-    for(int y=0; y<HEIGHT; y++)
-        for(int x=0; x<WIDTH; x++)
+    for(int y=0; y<term_rows; y++)
+        for(int x=0; x<term_cols; x++)
             put_entry_at(' ', BACKGROUND_COLOR, x, y);
     row = 0;
     col = 0;
@@ -134,7 +152,7 @@ static void pause(void) {
     for(volatile int i=0; i<10000; i++);
 }
 
-static void read_line(char* buf, size_t max) {
+static void read_line(char* buf, size_t max, window_t *win) {
     size_t idx = 0;
     int blink = 0;
     cursor_on = 1;
@@ -142,6 +160,9 @@ static void read_line(char* buf, size_t max) {
     mouse_draw(BACKGROUND_COLOR);
     while(idx < max-1) {
         mouse_update();
+        window_handle_mouse(win, mouse_get_x(), mouse_get_y(), mouse_clicked());
+        terminal_set_window(win);
+        window_draw(win);
         mouse_draw(BACKGROUND_COLOR);
         char c = keyboard_getchar();
         if(!c) {
@@ -164,7 +185,7 @@ static void read_line(char* buf, size_t max) {
             if(idx > 0) {
                 draw_cursor(0);
                 if(col == 0) {
-                    col = WIDTH-1;
+                    col = term_cols-1;
                     row--;
                 } else {
                     col--;
@@ -219,8 +240,8 @@ static void cmd_help(void) {
 }
 
 static void cmd_clear(void) {
-    for(int y=0; y<HEIGHT; y++)
-        for(int x=0; x<WIDTH; x++)
+    for(int y=0; y<term_rows; y++)
+        for(int x=0; x<term_cols; x++)
             put_entry_at(' ', BACKGROUND_COLOR, x, y);
     row=0; col=0;
 }
@@ -544,13 +565,13 @@ static void execute(const char* line) {
     }
 }
 
-void terminal_run(void) {
+void terminal_run(window_t *win) {
     char buf[128];
     mouse_set_visible(1);
     mouse_draw(BACKGROUND_COLOR);
-    while(1) {
+    while(win->visible) {
         print("> ");
-        read_line(buf, sizeof(buf));
+        read_line(buf, sizeof(buf), win);
         execute(buf);
         uptime_counter++;
     }
