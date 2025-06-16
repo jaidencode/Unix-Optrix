@@ -3,10 +3,10 @@
 
 #include <stdint.h>
 
-#define SCREEN_WIDTH 800
-#define SCREEN_HEIGHT 600
-#define CHAR_WIDTH 12
-#define CHAR_HEIGHT 16
+#define SCREEN_WIDTH 1920
+#define SCREEN_HEIGHT 1080
+#define CHAR_WIDTH 8
+#define CHAR_HEIGHT 8
 #define OFFSET_X 8
 #define OFFSET_Y 8
 #define SCREEN_COLS ((SCREEN_WIDTH - 2*OFFSET_X) / CHAR_WIDTH)

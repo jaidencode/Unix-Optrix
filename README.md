@@ -11,7 +11,7 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Loads the kernel from the disk image into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
-- Uses the VESA linear framebuffer so the full 800x600 screen is accessible.
+- Uses the VESA linear framebuffer so the full 1920x1080 screen is accessible.
 - Bootloader prints progress messages while loading the kernel.
 - Displays a simple spinning logo for a few seconds before launching the
   terminal.
@@ -49,8 +49,8 @@ qemu-system-x86_64 -hda disk.img
 ## Built-in terminal
 
 After boot a simple text terminal is available. The screen now runs in a
-high‑resolution 800x600 graphics mode with characters rendered at a 21‑pixel
-size. A title bar with a box-drawing border is drawn using VGA graphics
+high‑resolution 1920x1080 graphics mode with characters rendered at an
+8‑pixel size. A title bar with a box-drawing border is drawn using VGA graphics
 characters. The background is white with black text while the cursor is
 rendered in bright yellow. The hardware text mode cursor is disabled so only the
 custom cursor is visible. The terminal automatically scrolls as it fills.
