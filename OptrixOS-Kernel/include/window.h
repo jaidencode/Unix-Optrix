@@ -8,6 +8,7 @@ typedef struct {
     int px, py, pw, ph; /* previous position for redraw */
     int visible;
     int state; /* 0=normal,1=max,2=min */
+    int closed; /* set when the close button is pressed */
     uint8_t color;     /* window colour */
     uint8_t bg_color;  /* background colour behind window */
     const char *title;

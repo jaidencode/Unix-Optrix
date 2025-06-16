@@ -1,6 +1,7 @@
 #include "exec.h"
 #include <stddef.h>
 #include "screen.h"
+#include "taskbar.h"
 
 #define MAX_EXECS 10
 
@@ -38,7 +39,9 @@ int exec_run(const char* name) {
             int y = (SCREEN_HEIGHT - h) / 2;
             window_init(&win, x, y, w, h, name, 0x07, 0x17);
             window_draw(&win);
+            taskbar_register(&win);
             table[i].func(&win);
+            taskbar_unregister(&win);
             return 1;
         }
     }

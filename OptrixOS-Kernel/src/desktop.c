@@ -6,6 +6,7 @@
 #include "window.h"
 #include "exec.h"
 #include "fs.h"
+#include "taskbar.h"
 
 #define DESKTOP_BG_COLOR 0x17
 #define MAX_ICONS 20
@@ -16,6 +17,7 @@ static icon_t icons[MAX_ICONS];
 static int icon_count = 0;
 static int click_timer = 0;
 static int last_clicked = -1;
+static int fs_ready = 0;
 
 static void terminal_exec(window_t *win) {
     terminal_set_window(win);
@@ -30,8 +32,15 @@ static void draw_icons(void) {
     for(int i=0; i<icon_count; i++) {
         icons[i].x = x;
         icons[i].y = y;
-        draw_rect(x, y, 32, 32, 0x07);
-        char c = icons[i].entry->name[0];
+        const char *name = icons[i].entry->name;
+        uint8_t col = 0x07;
+        int len = 0;
+        while(name[len]) len++;
+        if(len > 4 && name[len-4]=='.' && name[len-3]=='o' &&
+           name[len-2]=='p' && name[len-1]=='t')
+            col = 0x03; /* OPT executable */
+        draw_rect(x, y, 32, 32, col);
+        char c = name[0];
         screen_put_char((x+12-OFFSET_X)/CHAR_WIDTH,
                        (y+12-OFFSET_Y)/CHAR_HEIGHT, c, 0x0F);
         x += spacing;
@@ -44,8 +53,20 @@ static int in_icon(int idx, int x, int y) {
             y >= icons[idx].y && y < icons[idx].y+32);
 }
 
+static void refresh_icons(void) {
+    fs_entry* desk = fs_find_subdir(fs_get_root(), "desktop");
+    if(!desk) { icon_count = 0; return; }
+    if(desk->child_count != icon_count) {
+        icon_count = 0;
+        for(int i=0; i<desk->child_count && i<MAX_ICONS; i++)
+            icons[icon_count++].entry = &desk->children[i];
+        draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,DESKTOP_BG_COLOR);
+        draw_icons();
+    }
+}
+
 void desktop_init(void) {
-    fs_init();
+    if(!fs_ready) { fs_init(); fs_ready = 1; }
     draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,DESKTOP_BG_COLOR);
     fs_entry* root = fs_get_root();
     fs_entry* desk = fs_find_subdir(root, "desktop");
@@ -58,6 +79,7 @@ void desktop_init(void) {
     draw_icons();
     exec_init();
     exec_register("terminal.opt", terminal_exec);
+    taskbar_init();
 }
 
 void desktop_run(void) {
@@ -68,6 +90,8 @@ void desktop_run(void) {
     mouse_draw(DESKTOP_BG_COLOR);
     while(1) {
         mouse_update();
+        refresh_icons();
+        taskbar_draw();
         int mx = mouse_get_x();
         int my = mouse_get_y();
 
