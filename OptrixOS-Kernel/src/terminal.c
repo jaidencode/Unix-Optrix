@@ -10,9 +10,9 @@ static int strprefix(const char* str, const char* pre) { while(*pre) { if(*str!=
 
 #define WIDTH SCREEN_COLS
 #define HEIGHT SCREEN_ROWS
-#define DEFAULT_TEXT_COLOR 0x00
+#define DEFAULT_TEXT_COLOR 0x0F
 #define CURSOR_COLOR 0x0E
-#define BACKGROUND_COLOR 0x0F
+#define BACKGROUND_COLOR 0x00
 #define CURSOR_CHAR '_'
 
 static char text_buffer[HEIGHT][WIDTH];
@@ -22,6 +22,8 @@ static int row = 0;
 static int col = 0;
 static int cursor_on = 0;
 static uint8_t text_color = DEFAULT_TEXT_COLOR;
+static fs_entry* current_dir;
+static char current_path[32] = "/";
 
 static void draw_cursor(int visible) {
     if(visible)
@@ -81,6 +83,9 @@ void terminal_init(void) {
     col = 0;
     draw_cursor(1);
     fs_init();
+    current_dir = fs_get_root();
+    current_path[0] = '/';
+    current_path[1] = '\0';
 }
 
 static void print(const char* str) {
@@ -285,9 +290,6 @@ static void cmd_uptime(void) {
 }
 
 #include "fs.h"
-
-static fs_entry* current_dir;
-static char current_path[32] = "/";
 
 static void cmd_dir(void) {
     for(int i=0; i<current_dir->child_count; i++) {
