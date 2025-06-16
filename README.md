@@ -42,3 +42,14 @@ script outputs `disk.img` which can be run with:
 ```bash
 qemu-system-x86_64 -hda disk.img
 ```
+
+## Built-in terminal
+
+After boot a simple text terminal is available. The border is drawn in white and
+the background is blue. The terminal automatically scrolls as it fills. The
+following commands are implemented:
+
+* `help`  - display available commands
+* `clear` - clear the screen
+* `echo`  - echo arbitrary text
+

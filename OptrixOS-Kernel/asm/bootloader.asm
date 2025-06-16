@@ -13,8 +13,8 @@ start:
     mov ss, ax
     mov sp, 0x7C00
 
-    ; Set video mode 13h (320x200x256)
-    mov ax, 0x0013
+    ; Set video mode 03h (80x25 text)
+    mov ax, 0x0003
     int 0x10
 
     ; load kernel (assumes kernel starts at second sector)
