@@ -10,8 +10,9 @@ static int strprefix(const char* str, const char* pre) { while(*pre) { if(*str!=
 
 #define WIDTH SCREEN_COLS
 #define HEIGHT SCREEN_ROWS
-#define DEFAULT_TEXT_COLOR 0x0B
+#define DEFAULT_TEXT_COLOR 0x00
 #define CURSOR_COLOR 0x0E
+#define BACKGROUND_COLOR 0x0F
 #define CURSOR_CHAR '_'
 
 static char text_buffer[HEIGHT][WIDTH];
@@ -47,8 +48,8 @@ static void scroll(void) {
     }
     for(int x=0; x<WIDTH; x++) {
         text_buffer[HEIGHT-1][x] = ' ';
-        color_buffer[HEIGHT-1][x] = 0x00;
-        screen_put_char(x, HEIGHT-1, ' ', 0x00);
+        color_buffer[HEIGHT-1][x] = BACKGROUND_COLOR;
+        screen_put_char(x, HEIGHT-1, ' ', BACKGROUND_COLOR);
     }
 }
 
@@ -75,7 +76,7 @@ static void putchar(char c) {
 void terminal_init(void) {
     for(int y=0; y<HEIGHT; y++)
         for(int x=0; x<WIDTH; x++)
-            put_entry_at(' ', 0x00, x, y);
+            put_entry_at(' ', BACKGROUND_COLOR, x, y);
     row = 0;
     col = 0;
     draw_cursor(1);
@@ -146,7 +147,7 @@ static void read_line(char* buf, size_t max) {
                     col--;
                 }
                 idx--;
-                put_entry_at(' ', 0x00, col, row);
+                put_entry_at(' ', BACKGROUND_COLOR, col, row);
                 draw_cursor(1);
             }
             continue;
@@ -196,7 +197,7 @@ static void cmd_help(void) {
 static void cmd_clear(void) {
     for(int y=0; y<HEIGHT; y++)
         for(int x=0; x<WIDTH; x++)
-            put_entry_at(' ', 0x00, x, y);
+            put_entry_at(' ', BACKGROUND_COLOR, x, y);
     row=0; col=0;
 }
 
