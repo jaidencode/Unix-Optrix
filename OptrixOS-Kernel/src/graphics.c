@@ -15,6 +15,12 @@ void put_pixel(int x, int y, uint8_t color) {
     VGA[y * WIDTH + x] = color;
 }
 
+uint8_t get_pixel(int x, int y) {
+    if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT)
+        return 0;
+    return VGA[y * WIDTH + x];
+}
+
 void draw_rect(int x, int y, int w, int h, uint8_t color) {
     for (int j = 0; j < h; j++) {
         for (int i = 0; i < w; i++) {

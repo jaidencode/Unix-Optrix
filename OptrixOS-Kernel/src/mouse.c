@@ -10,14 +10,22 @@ static int clicked = 0;
 static int mouse_present = 0;
 static int cursor_visible = 1;
 static int prev_x = -1, prev_y = -1;
+static uint8_t saved_bg[4][4];
 
 void mouse_set_visible(int vis) { cursor_visible = vis; }
 int mouse_get_visible(void) { return cursor_visible; }
 
 void mouse_draw(uint8_t bg_color) {
-    if(prev_x != -1 && prev_y != -1 && cursor_visible)
-        draw_rect(prev_x-2, prev_y-2, 4, 4, bg_color);
+    (void)bg_color;
+    if(prev_x != -1 && prev_y != -1 && cursor_visible) {
+        for(int dy=0; dy<4; dy++)
+            for(int dx=0; dx<4; dx++)
+                put_pixel(prev_x-2+dx, prev_y-2+dy, saved_bg[dy][dx]);
+    }
     if(cursor_visible) {
+        for(int dy=0; dy<4; dy++)
+            for(int dx=0; dx<4; dx++)
+                saved_bg[dy][dx] = get_pixel(mx-2+dx, my-2+dy);
         draw_rect(mx-2, my-2, 4, 4, 0x0F);
         prev_x = mx; prev_y = my;
     } else {
