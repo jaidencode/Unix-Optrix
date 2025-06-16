@@ -20,8 +20,8 @@ static int strprefix(const char* str, const char* pre) {
     return 1;
 }
 
-#define WIDTH 100
-#define HEIGHT 30
+#define WIDTH 80
+#define HEIGHT 25
 #define BORDER_COLOR 0x0F
 #define DEFAULT_TEXT_COLOR 0x0E
 #define CURSOR_COLOR 0x0E
