@@ -110,3 +110,18 @@ int fs_delete_entry(fs_entry* dir, const char* name) {
     }
     return 0;
 }
+
+void fs_write_file(fs_entry* file, const char* text) {
+    if(!file || file->is_dir) return;
+    int k = 0;
+    while(text[k] && k < 255) {
+        file->content[k] = text[k];
+        k++;
+    }
+    file->content[k] = '\0';
+}
+
+const char* fs_read_file(fs_entry* file) {
+    if(!file || file->is_dir) return "";
+    return file->content;
+}
