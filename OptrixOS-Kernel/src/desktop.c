@@ -4,6 +4,7 @@
 #include "mouse.h"
 #include "terminal.h"
 #include "window.h"
+#include "exec.h"
 
 #define DESKTOP_BG_COLOR 0x17
 
@@ -12,6 +13,12 @@ static int icon_y = 50;
 static int dragging = 0;
 static int click_timer = 0;
 static window_t demo_win;
+
+static void terminal_exec(window_t *win) {
+    (void)win;
+    terminal_init();
+    terminal_run();
+}
 
 static void draw_icon(void) {
     draw_rect(icon_x, icon_y, 32, 32, 0x07);
@@ -27,8 +34,10 @@ void desktop_init(void) {
     icon_x = 50;
     icon_y = 50;
     draw_icon();
-    window_init(&demo_win, 100, 100, 200, 150, "Demo");
-    window_draw(&demo_win, 0x07);
+    exec_init();
+    exec_register("terminal", terminal_exec);
+    window_init(&demo_win, 100, 100, 200, 150, "Demo", 0x07, DESKTOP_BG_COLOR);
+    window_draw(&demo_win);
 }
 
 void desktop_run(void) {
@@ -51,8 +60,7 @@ void desktop_run(void) {
         if(mouse_clicked()) {
             if(in_icon(mx,my)) {
                 if(click_timer > 0 && click_timer < 20) {
-                    terminal_init();
-                    terminal_run();
+                    exec_run("terminal");
                     desktop_init();
                     last_icon_x = icon_x;
                     last_icon_y = icon_y;
@@ -85,7 +93,7 @@ void desktop_run(void) {
         }
 
         window_handle_mouse(&demo_win, mx, my, mouse_clicked());
-        window_draw(&demo_win, 0x07);
+        window_draw(&demo_win);
         draw_rect(mx-2,my-2,4,4,0x0F);
 
         last_mx = mx;
