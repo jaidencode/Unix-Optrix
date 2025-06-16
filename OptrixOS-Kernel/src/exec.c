@@ -1,5 +1,6 @@
 #include "exec.h"
 #include <stddef.h>
+#include "screen.h"
 
 #define MAX_EXECS 10
 
@@ -32,7 +33,10 @@ int exec_run(const char* name) {
     for(int i=0;i<exec_count;i++) {
         if(streq(table[i].name, name)) {
             window_t win;
-            window_init(&win, 150, 150, 400, 250, name, 0x07, 0x17);
+            int w = 400, h = 250;
+            int x = (SCREEN_WIDTH - w) / 2;
+            int y = (SCREEN_HEIGHT - h) / 2;
+            window_init(&win, x, y, w, h, name, 0x07, 0x17);
             window_draw(&win);
             table[i].func(&win);
             return 1;

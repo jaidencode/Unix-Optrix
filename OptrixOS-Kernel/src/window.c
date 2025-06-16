@@ -63,7 +63,9 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
 
     if(click && !drag && !resize) {
         if(show_bar && my >= y && my < y+14 && mx >= x+w-36 && mx < x+w-26) {
+            draw_rect(win->x, win->y, win->w, win->h, win->bg_color);
             win->visible = 0; /* close */
+            win->px = win->py = -1;
             return;
         } else if(show_bar && my >= y && my < y+14 && mx >= x+w-24 && mx < x+w-14) {
             win->state = 2; /* minimize */

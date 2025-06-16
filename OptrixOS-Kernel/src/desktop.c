@@ -16,12 +16,11 @@ static icon_t icons[MAX_ICONS];
 static int icon_count = 0;
 static int click_timer = 0;
 static int last_clicked = -1;
-static window_t demo_win;
 
 static void terminal_exec(window_t *win) {
     terminal_set_window(win);
     terminal_init();
-    terminal_run();
+    terminal_run(win);
 }
 
 static void draw_icons(void) {
@@ -59,8 +58,6 @@ void desktop_init(void) {
     draw_icons();
     exec_init();
     exec_register("terminal.opt", terminal_exec);
-    window_init(&demo_win, 100, 100, 200, 150, "Demo", 0x07, DESKTOP_BG_COLOR);
-    window_draw(&demo_win);
 }
 
 void desktop_run(void) {
@@ -92,8 +89,6 @@ void desktop_run(void) {
             if(click_timer>30){ click_timer=0; last_clicked=-1; }
         }
 
-        window_handle_mouse(&demo_win, mx, my, mouse_clicked());
-        window_draw(&demo_win);
         mouse_draw(DESKTOP_BG_COLOR);
     }
 }
