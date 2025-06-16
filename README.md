@@ -51,8 +51,8 @@ qemu-system-x86_64 -hda disk.img
 After boot a simple text terminal is available. The screen now runs in a
 high‑resolution 800x600 graphics mode with characters rendered at a 21‑pixel
 size. A title bar with a box-drawing border is drawn using VGA graphics
-characters. The background is black with cyan text while the cursor is
-rendered in bright red. The hardware text mode cursor is disabled so only the
+characters. The background is white with black text while the cursor is
+rendered in bright yellow. The hardware text mode cursor is disabled so only the
 custom cursor is visible. The terminal automatically scrolls as it fills.
 The following commands are implemented:
 
@@ -79,4 +79,5 @@ The following commands are implemented:
 * `mv`      - rename a file
 * `mkdir`   - create a directory
 * `rmdir`   - remove an empty directory
+  (directory capacity has been increased to support more entries)
 
