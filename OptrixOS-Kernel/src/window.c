@@ -6,8 +6,6 @@
 #include "terminal.h"
 #include "desktop.h"
 
-static int drag = 0;
-static int resize = 0;
 static int prev_mx, prev_my;
 static int saved_x, saved_y, saved_w, saved_h;
 
@@ -18,6 +16,8 @@ void window_init(window_t *win, int x, int y, int w, int h,
     win->visible = 1;
     win->state = 0;
     win->closed = 0;
+    win->dragging = 0;
+    win->resizing = 0;
     win->color = color;
     win->bg_color = bg_color;
     win->title = title;
@@ -106,7 +106,7 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
     int show_bar = 1;
     int bar_h = 20;
 
-    if(click && !drag && !resize) {
+    if(click && !win->dragging && !win->resizing) {
         if(show_bar && my >= y && my < y+bar_h-2 && mx >= x+w-40 && mx < x+w-32) {
             window_close(win);
             return;
@@ -123,19 +123,22 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
             }
             return;
         } else if(show_bar && my >= y && my < y+bar_h-2) {
-            drag = 1; prev_mx = mx; prev_my = my;
+            win->dragging = 1; prev_mx = mx; prev_my = my;
         } else if(mx >= x+w-4 && my >= y+h-4) {
-            resize = 1; prev_mx = mx; prev_my = my;
+            win->resizing = 1; prev_mx = mx; prev_my = my;
         }
-    } else if(click && drag) {
+    } else if(click && win->dragging) {
         win->x += mx - prev_mx; win->y += my - prev_my;
         prev_mx = mx; prev_my = my;
         terminal_recursive_update();
-    } else if(click && resize) {
+    } else if(click && win->resizing) {
         win->w += mx - prev_mx; win->h += my - prev_my;
+        if(win->w < 64) win->w = 64;
+        if(win->h < bar_h+32) win->h = bar_h+32;
         prev_mx = mx; prev_my = my;
         terminal_recursive_update();
     } else {
-        drag = resize = 0;
+        win->dragging = 0;
+        win->resizing = 0;
     }
 }

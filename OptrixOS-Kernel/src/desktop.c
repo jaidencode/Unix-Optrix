@@ -35,15 +35,15 @@ static void draw_wallpaper(void) {
                 put_pixel(x, y, wallpaper_buf[y * SCREEN_WIDTH + x]);
             }
         }
+    } else {
+        draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,WALL_COLOR1);
     }
 }
 
 void desktop_init(void) {
     fs_init();
     taskbar_init();
-    uint8_t *buf = mem_alloc(SCREEN_WIDTH * SCREEN_HEIGHT);
-    if(buf)
-        graphics_set_backbuffer(buf);
+    graphics_init_buffers(2);
     draw_wallpaper();
     graphics_present();
     container_init();

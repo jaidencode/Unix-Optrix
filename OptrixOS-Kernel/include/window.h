@@ -9,6 +9,8 @@ typedef struct {
     int visible;
     int state; /* 0=normal,1=max,2=min */
     int closed; /* set when the close button is pressed */
+    int dragging;
+    int resizing;
     uint8_t color;     /* window colour */
     uint8_t bg_color;  /* background colour behind window */
     const char *title;
