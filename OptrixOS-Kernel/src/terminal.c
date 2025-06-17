@@ -607,6 +607,7 @@ void terminal_run(window_t *win) {
         if(!win->visible) break;
         if(buf[0])
             execute(buf);
+        terminal_recursive_update();
         uptime_counter++;
     }
 }
