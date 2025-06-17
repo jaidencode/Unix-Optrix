@@ -4,6 +4,7 @@
 #include "mouse.h"
 #include "taskbar.h"
 #include "terminal.h"
+#include "desktop.h"
 
 static int drag = 0;
 static int resize = 0;
@@ -24,7 +25,7 @@ void window_init(window_t *win, int x, int y, int w, int h,
 
 void window_close(window_t *win) {
     if(!win || !win->visible) return;
-    draw_rect(win->x, win->y, win->w, win->h, win->bg_color);
+    desktop_redraw_region(win->x, win->y, win->w, win->h);
     win->visible = 0;
     win->closed = 1;
     win->px = win->py = -1;
@@ -45,7 +46,8 @@ void window_draw(window_t* win) {
 
     /* clear previous location if window moved */
     if(x != win->px || y != win->py || w != win->pw || h != win->ph) {
-        draw_rect(win->px, win->py, win->pw, win->ph, win->bg_color);
+        if(win->px >= 0 && win->py >= 0)
+            desktop_redraw_region(win->px, win->py, win->pw, win->ph);
         win->px = x; win->py = y; win->pw = w; win->ph = h;
     } else {
         /* nothing changed - avoid redraw flicker */

@@ -18,6 +18,19 @@ static void draw_wallpaper(void) {
         }
     }
 }
+
+static void draw_wallpaper_region(int x, int y, int w, int h) {
+    if(x < 0) { w += x; x = 0; }
+    if(y < 0) { h += y; y = 0; }
+    if(x + w > SCREEN_WIDTH)  w = SCREEN_WIDTH - x;
+    if(y + h > SCREEN_HEIGHT) h = SCREEN_HEIGHT - y;
+    for(int yy = y; yy < y + h; yy++) {
+        for(int xx = x; xx < x + w; xx++) {
+            uint8_t c = ((xx/8) ^ (yy/8)) & 0x0F;
+            put_pixel(xx, yy, c | 0x10);
+        }
+    }
+}
 #define MAX_ICONS 20
 
 typedef struct { int x; int y; fs_entry* entry; } icon_t;
@@ -57,9 +70,36 @@ static void draw_icons(void) {
     }
 }
 
+static void draw_icon(int idx) {
+    if(idx < 0 || idx >= icon_count) return;
+    const char *name = icons[idx].entry->name;
+    uint8_t col = 0x07;
+    int len = 0;
+    while(name[len]) len++;
+    if(len > 4 && name[len-4]=='.' && name[len-3]=='o' &&
+       name[len-2]=='p' && name[len-1]=='t')
+        col = 0x03;
+    draw_rect(icons[idx].x, icons[idx].y, 32, 32, col);
+    char c = name[0];
+    screen_put_char((icons[idx].x+12-OFFSET_X)/CHAR_WIDTH,
+                   (icons[idx].y+12-OFFSET_Y)/CHAR_HEIGHT, c, 0x0F);
+}
+
 static int in_icon(int idx, int x, int y) {
     return (x >= icons[idx].x && x < icons[idx].x+32 &&
             y >= icons[idx].y && y < icons[idx].y+32);
+}
+
+void desktop_redraw_region(int x, int y, int w, int h) {
+    draw_wallpaper_region(x, y, w, h);
+    for(int i=0; i<icon_count; i++) {
+        if(icons[i].x + 32 > x && icons[i].x < x + w &&
+           icons[i].y + 32 > y && icons[i].y < y + h) {
+            draw_icon(i);
+        }
+    }
+    if(y + h > SCREEN_HEIGHT - 16) /* refresh taskbar if needed */
+        taskbar_draw();
 }
 
 static void refresh_icons(void) {
