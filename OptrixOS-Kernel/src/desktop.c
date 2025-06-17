@@ -6,6 +6,7 @@
 #include "container.h"
 #include "taskbar.h"
 #include "terminal.h"
+#include "mem.h"
 
 #define DESKTOP_BG_COLOR 0x17
 
@@ -22,7 +23,10 @@ void desktop_init(void) {
     taskbar_init();
     draw_wallpaper();
     container_init();
-    test_win = container_create(96, 72, 512, 336, "Test Window", 0x02, 0x00);
+    uint8_t *buf = mem_alloc(SCREEN_WIDTH * SCREEN_HEIGHT);
+    if(buf)
+        graphics_set_backbuffer(buf);
+    test_win = container_create(96, 72, 512, 336, "Test Window", 0x07, 0x00);
     terminal_set_window(test_win);
 }
 
@@ -35,6 +39,7 @@ void desktop_run(void) {
         container_handle_mouse(mouse_get_x(), mouse_get_y(), mouse_clicked());
         container_draw();
         mouse_draw();
+        graphics_present();
     }
 }
 

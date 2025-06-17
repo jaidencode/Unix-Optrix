@@ -36,17 +36,17 @@ static void draw_button(int bx, int by) {
     const uint8_t base = 0x07;
     const uint8_t highlight = 0x0F;
     const uint8_t shadow = 0x08;
-    draw_rect(bx, by, 6, 6, base);
-    draw_rect(bx, by, 6, 1, highlight);
-    draw_rect(bx, by, 1, 6, highlight);
-    draw_rect(bx, by+5, 6, 1, shadow);
-    draw_rect(bx+5, by, 1, 6, shadow);
+    draw_rect(bx, by, 8, 8, base);
+    draw_rect(bx, by, 8, 1, highlight);
+    draw_rect(bx, by, 1, 8, highlight);
+    draw_rect(bx, by+7, 8, 1, shadow);
+    draw_rect(bx+7, by, 1, 8, shadow);
 }
 
 static void draw_buttons(int x, int y) {
-    draw_button(x-36, y+3); /* close */
-    draw_button(x-24, y+3); /* minimize */
-    draw_button(x-12, y+3); /* maximize */
+    draw_button(x-40, y+4); /* close */
+    draw_button(x-26, y+4); /* minimize */
+    draw_button(x-12, y+4); /* maximize */
 }
 
 void window_draw(window_t* win) {
@@ -65,7 +65,7 @@ void window_draw(window_t* win) {
         return;
     }
 
-    int bar_h = 16;
+    int bar_h = 20;
     const uint8_t border = 0x07;   /* grey */
     const uint8_t highlight = 0x0F;/* white */
     const uint8_t shadow = 0x08;   /* dark grey */
@@ -90,7 +90,7 @@ void window_draw(window_t* win) {
         int len=0; while(win->title[len]) len++;
         int tx = x + (w - len*CHAR_WIDTH)/2;
         for(int c=0;c<len;c++)
-            screen_put_char_offset(c,0,win->title[c],0x00,tx, y+4);
+            screen_put_char_offset(c,0,win->title[c],0x0F,tx, y+6);
     }
 
     draw_buttons(x+w-4, y+2);
@@ -102,15 +102,16 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
     int x = win->x; int y = win->y; int w = win->w; int h = win->h;
     if(win->state == 1) { x = 0; y = 0; w = SCREEN_WIDTH; h = SCREEN_HEIGHT; }
     int show_bar = 1;
+    int bar_h = 20;
 
     if(click && !drag && !resize) {
-        if(show_bar && my >= y && my < y+14 && mx >= x+w-36 && mx < x+w-26) {
+        if(show_bar && my >= y && my < y+bar_h-2 && mx >= x+w-40 && mx < x+w-32) {
             window_close(win);
             return;
-        } else if(show_bar && my >= y && my < y+14 && mx >= x+w-24 && mx < x+w-14) {
+        } else if(show_bar && my >= y && my < y+bar_h-2 && mx >= x+w-26 && mx < x+w-18) {
             win->state = 2; /* minimize */
             return;
-        } else if(show_bar && my >= y && my < y+14 && mx >= x+w-12 && mx < x+w) {
+        } else if(show_bar && my >= y && my < y+bar_h-2 && mx >= x+w-12 && mx < x+w-4) {
             if(win->state == 1) {
                 win->state = 0;
                 win->x = saved_x; win->y = saved_y; win->w = saved_w; win->h = saved_h;
@@ -119,7 +120,7 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
                 win->state = 1;
             }
             return;
-        } else if(show_bar && my >= y && my < y+14) {
+        } else if(show_bar && my >= y && my < y+bar_h-2) {
             drag = 1; prev_mx = mx; prev_my = my;
         } else if(mx >= x+w-4 && my >= y+h-4) {
             resize = 1; prev_mx = mx; prev_my = my;
