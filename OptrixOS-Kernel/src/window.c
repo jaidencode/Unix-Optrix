@@ -61,15 +61,7 @@ void window_draw(window_t* win) {
     draw_rect(x, y+14, w, h-14, win->color);
     /* top bar with rounded corners */
     draw_rounded_rect(x, y, w, 14, 6, 0x01);
-    /* border */
-    draw_rounded_rect(x, y, w, h, 6, 0x08);
     if(show_bar) {
-        if(win->title) {
-            const char *t = win->title;
-            for(int i=0; t[i] && i<20; i++)
-                screen_put_char((x+4-OFFSET_X)/CHAR_WIDTH + i,
-                                (y+3-OFFSET_Y)/CHAR_HEIGHT, t[i], 0x0F);
-        }
         draw_buttons(x+w, y);
     }
 }

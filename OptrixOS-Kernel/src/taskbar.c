@@ -3,7 +3,7 @@
 #include "screen.h"
 
 #define MAX_TASKS 10
-#define TASKBAR_COLOR 0x01
+#define TASKBAR_COLOR 0x18
 
 static window_t *tasks[MAX_TASKS];
 static int task_count = 0;

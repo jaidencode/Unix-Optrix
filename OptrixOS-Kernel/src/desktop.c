@@ -8,13 +8,12 @@
 #include "fs.h"
 #include "taskbar.h"
 
-#define DESKTOP_BG_COLOR 0x17
+#define DESKTOP_BG_COLOR 0x12
 
 static void draw_wallpaper(void) {
     for(int y=0; y<SCREEN_HEIGHT; y++) {
         for(int x=0; x<SCREEN_WIDTH; x++) {
-            uint8_t c = ((x/8) ^ (y/8)) & 0x0F;
-            put_pixel(x, y, c | 0x10);
+            put_pixel(x, y, DESKTOP_BG_COLOR);
         }
     }
 }
@@ -26,8 +25,7 @@ static void draw_wallpaper_region(int x, int y, int w, int h) {
     if(y + h > SCREEN_HEIGHT) h = SCREEN_HEIGHT - y;
     for(int yy = y; yy < y + h; yy++) {
         for(int xx = x; xx < x + w; xx++) {
-            uint8_t c = ((xx/8) ^ (yy/8)) & 0x0F;
-            put_pixel(xx, yy, c | 0x10);
+            put_pixel(xx, yy, DESKTOP_BG_COLOR);
         }
     }
 }
