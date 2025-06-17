@@ -5,29 +5,24 @@ all: disk.img
 bootloader.bin: asm/bootloader.asm
 	@nasm -f bin $< -o $@
 	
-kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboard.o src/terminal.o src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o src/window.o src/exec.o src/taskbar.o src/driver.o src/mem.o src/kernel_main.o
+kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboard.o src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o src/driver.o src/mem.o src/kernel_main.o
 	@nasm -f elf32 asm/kernel.asm -o kernel_asm.o
 	@nasm -f elf32 asm/ports.asm -o ports.o
 	@gcc $(CFLAGS) -c src/graphics.c -o src/graphics.o
 	@gcc $(CFLAGS) -c src/screen.c -o src/screen.o
 	@gcc $(CFLAGS) -c src/keyboard.c -o src/keyboard.o
-	@gcc $(CFLAGS) -c src/terminal.c -o src/terminal.o
 	@gcc $(CFLAGS) -c src/fs.c -o src/fs.o
 	@gcc $(CFLAGS) -c src/boot_logo.c -o src/boot_logo.o
 	@gcc $(CFLAGS) -c src/login.c -o src/login.o
 	@gcc $(CFLAGS) -c src/desktop.c -o src/desktop.o
 	@gcc $(CFLAGS) -c src/mouse.c -o src/mouse.o
-	@gcc $(CFLAGS) -c src/window.c -o src/window.o
-	@gcc $(CFLAGS) -c src/exec.c -o src/exec.o
-	@gcc $(CFLAGS) -c src/taskbar.c -o src/taskbar.o
 	@gcc $(CFLAGS) -c src/driver.c -o src/driver.o
 	@gcc $(CFLAGS) -c src/mem.c -o src/mem.o
 	@gcc $(CFLAGS) -c src/kernel_main.c -o src/kernel_main.o
-	@ld -m elf_i386 -Ttext 0x1000 kernel_asm.o ports.o \
-    src/graphics.o src/screen.o src/keyboard.o src/terminal.o \
+    @ld -m elf_i386 -Ttext 0x1000 kernel_asm.o ports.o \
+    src/graphics.o src/screen.o src/keyboard.o \
     src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o \
-    src/window.o src/exec.o src/taskbar.o src/driver.o \
-    src/mem.o src/kernel_main.o --oformat binary -o $@
+    src/driver.o src/mem.o src/kernel_main.o --oformat binary -o $@
 	
 disk.img: bootloader.bin kernel.bin
 	@cat bootloader.bin kernel.bin > $@
