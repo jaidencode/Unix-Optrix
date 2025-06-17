@@ -32,10 +32,21 @@ void window_close(window_t *win) {
     taskbar_unregister(win);
 }
 
+static void draw_button(int bx, int by) {
+    const uint8_t base = 0x07;
+    const uint8_t highlight = 0x0F;
+    const uint8_t shadow = 0x08;
+    draw_rect(bx, by, 6, 6, base);
+    draw_rect(bx, by, 6, 1, highlight);
+    draw_rect(bx, by, 1, 6, highlight);
+    draw_rect(bx, by+5, 6, 1, shadow);
+    draw_rect(bx+5, by, 1, 6, shadow);
+}
+
 static void draw_buttons(int x, int y) {
-    draw_rounded_rect(x-36, y+3, 6, 6, 3, 0x04); /* close */
-    draw_rounded_rect(x-24, y+3, 6, 6, 3, 0x02); /* minimize */
-    draw_rounded_rect(x-12, y+3, 6, 6, 3, 0x03); /* maximize */
+    draw_button(x-36, y+3); /* close */
+    draw_button(x-24, y+3); /* minimize */
+    draw_button(x-12, y+3); /* maximize */
 }
 
 void window_draw(window_t* win) {
