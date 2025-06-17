@@ -4,20 +4,36 @@
 #define WIDTH 800
 #define HEIGHT 600
 static volatile uint8_t *VGA = (uint8_t *)0xA0000;
+static uint8_t *BACKBUF = 0;
 
 void graphics_set_framebuffer(uint32_t addr) {
     VGA = (volatile uint8_t *)addr;
 }
 
+void graphics_set_backbuffer(uint8_t *buf) {
+    BACKBUF = buf;
+}
+
+void graphics_present(void) {
+    if(!BACKBUF) return;
+    for(int i=0;i<WIDTH*HEIGHT;i++)
+        VGA[i] = BACKBUF[i];
+}
+
 void put_pixel(int x, int y, uint8_t color) {
     if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT)
         return;
-    VGA[y * WIDTH + x] = color;
+    if(BACKBUF)
+        BACKBUF[y * WIDTH + x] = color;
+    else
+        VGA[y * WIDTH + x] = color;
 }
 
 uint8_t get_pixel(int x, int y) {
     if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT)
         return 0;
+    if(BACKBUF)
+        return BACKBUF[y * WIDTH + x];
     return VGA[y * WIDTH + x];
 }
 

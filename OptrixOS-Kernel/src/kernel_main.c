@@ -7,7 +7,7 @@
 
 /* simple heap placed at 0x200000 for illustration */
 #define HEAP_BASE ((unsigned char*)0x200000)
-#define HEAP_SIZE (64*1024)
+#define HEAP_SIZE (512*1024)
 
 void kernel_main(void) {
     screen_init();
