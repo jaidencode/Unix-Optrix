@@ -266,12 +266,9 @@ def cleanup():
 def main():
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
-    # Exclude the old scheduler from builds
-    c_files = [f for f in c_files if not f.endswith('scheduler.c')]
-    c_files = [f for f in c_files if not f.endswith('terminal.c')]
-    c_files = [f for f in c_files if not f.endswith('exec.c')]
-    c_files = [f for f in c_files if not f.endswith('taskbar.c')]
-    c_files = [f for f in c_files if not f.endswith('window.c')]
+    # Previously some components were excluded when building the
+    # kernel from Windows. The code base now requires these modules
+    # so do not filter them out here.
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
     make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
