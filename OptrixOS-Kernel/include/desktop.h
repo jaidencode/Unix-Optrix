@@ -3,7 +3,7 @@
 
 void desktop_init(void);
 void desktop_run(void);
-/* Redraws a portion of the desktop wallpaper and icons. */
+/* Redraws a portion of the desktop wallpaper and main window. */
 void desktop_redraw_region(int x, int y, int w, int h);
 
 #endif

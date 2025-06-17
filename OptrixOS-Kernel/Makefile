@@ -5,7 +5,7 @@ all: disk.img
 bootloader.bin: asm/bootloader.asm
 	@nasm -f bin $< -o $@
 	
-kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboard.o src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o src/driver.o src/mem.o src/kernel_main.o
+kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboard.o src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o src/driver.o src/mem.o src/taskbar.o src/scheduler.o src/terminal.o src/exec.o src/window.o src/window_manager.o src/cpu_core.o src/kernel_main.o
 	@nasm -f elf32 asm/kernel.asm -o kernel_asm.o
 	@nasm -f elf32 asm/ports.asm -o ports.o
 	@gcc $(CFLAGS) -c src/graphics.c -o src/graphics.o
@@ -18,11 +18,18 @@ kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboar
 	@gcc $(CFLAGS) -c src/mouse.c -o src/mouse.o
 	@gcc $(CFLAGS) -c src/driver.c -o src/driver.o
 	@gcc $(CFLAGS) -c src/mem.c -o src/mem.o
+	@gcc $(CFLAGS) -c src/taskbar.c -o src/taskbar.o
+	@gcc $(CFLAGS) -c src/scheduler.c -o src/scheduler.o
+	@gcc $(CFLAGS) -c src/terminal.c -o src/terminal.o
+	@gcc $(CFLAGS) -c src/exec.c -o src/exec.o
+	@gcc $(CFLAGS) -c src/window.c -o src/window.o
+	@gcc $(CFLAGS) -c src/window_manager.c -o src/window_manager.o
+	@gcc $(CFLAGS) -c src/cpu_core.c -o src/cpu_core.o
 	@gcc $(CFLAGS) -c src/kernel_main.c -o src/kernel_main.o
-    @ld -m elf_i386 -Ttext 0x1000 kernel_asm.o ports.o \
-    src/graphics.o src/screen.o src/keyboard.o \
-    src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o \
-    src/driver.o src/mem.o src/kernel_main.o --oformat binary -o $@
+	@ld -m elf_i386 -Ttext 0x1000 kernel_asm.o ports.o \
+src/graphics.o src/screen.o src/keyboard.o \
+src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o \
+src/driver.o src/mem.o src/taskbar.o src/scheduler.o src/terminal.o src/exec.o src/window.o src/window_manager.o src/cpu_core.o src/kernel_main.o --oformat binary -o $@
 	
 disk.img: bootloader.bin kernel.bin
 	@cat bootloader.bin kernel.bin > $@
