@@ -10,6 +10,14 @@
 
 #define DESKTOP_BG_COLOR 0x17
 
+#define MAX_ICONS 20
+typedef struct { int x; int y; fs_entry* entry; } icon_t;
+static icon_t icons[MAX_ICONS];
+static int icon_count = 0;
+static int click_timer = 0;
+static int last_clicked = -1;
+static int fs_ready = 0;
+
 static void draw_wallpaper(void) {
     for(int y=0; y<SCREEN_HEIGHT; y++) {
         for(int x=0; x<SCREEN_WIDTH; x++) {
@@ -18,16 +26,49 @@ static void draw_wallpaper(void) {
         }
     }
 }
-#define MAX_ICONS 20
 
-typedef struct { int x; int y; fs_entry* entry; } icon_t;
+static void draw_wallpaper_region(int x, int y, int w, int h) {
+    if(x < 0) { w += x; x = 0; }
+    if(y < 0) { h += y; y = 0; }
+    if(x + w > SCREEN_WIDTH) w = SCREEN_WIDTH - x;
+    if(y + h > SCREEN_HEIGHT) h = SCREEN_HEIGHT - y;
+    for(int yy=y; yy<y+h; yy++) {
+        for(int xx=x; xx<x+w; xx++) {
+            uint8_t c = ((xx/8) ^ (yy/8)) & 0x0F;
+            put_pixel(xx, yy, c | 0x10);
+        }
+    }
+}
 
-static icon_t icons[MAX_ICONS];
-static int icon_count = 0;
-static int click_timer = 0;
-static int last_clicked = -1;
-static int fs_ready = 0;
+static void draw_icon_single(int idx) {
+    int x = icons[idx].x;
+    int y = icons[idx].y;
+    const char *name = icons[idx].entry->name;
+    uint8_t col = 0x07;
+    int len = 0;
+    while(name[len]) len++;
+    if(len > 4 && name[len-4]=='.' && name[len-3]=='o' &&
+       name[len-2]=='p' && name[len-1]=='t')
+        col = 0x03;
+    draw_rect(x, y, 32, 32, col);
+    char c = name[0];
+    screen_put_char((x+12-OFFSET_X)/CHAR_WIDTH,
+                   (y+12-OFFSET_Y)/CHAR_HEIGHT, c, 0x0F);
+}
 
+static int rect_intersects(int ax,int ay,int aw,int ah,int bx,int by,int bw,int bh){
+    return (ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by);
+}
+
+void desktop_redraw_region(int x, int y, int w, int h) {
+    draw_wallpaper_region(x, y, w, h);
+    for(int i=0;i<icon_count;i++) {
+        if(rect_intersects(x,y,w,h, icons[i].x, icons[i].y,32,32))
+            draw_icon_single(i);
+    }
+    if(y + h > SCREEN_HEIGHT - 16)
+        taskbar_draw();
+}
 static void terminal_exec(window_t *win) {
     terminal_set_window(win);
     terminal_init();

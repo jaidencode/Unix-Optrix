@@ -13,9 +13,9 @@ start:
     mov ss, ax
     mov sp, 0x7C00
 
-    ; Get VESA mode information for 0x103
+    ; Get VESA mode information for 0x105
     mov ax, 0x4F01
-    mov cx, 0x103
+    mov cx, 0x105
     mov di, mode_info
     int 0x10
     ; Save linear framebuffer address
@@ -23,9 +23,9 @@ start:
     mov eax, [si + 0x28]
     mov [fb_addr], eax
 
-    ; Set VESA graphics mode 0x4103 (800x600 256 colors, linear FB)
+    ; Set VESA graphics mode 0x4105 (1024x768 256 colors, linear FB)
     mov ax, 0x4F02
-    mov bx, 0x4103
+    mov bx, 0x4105
     int 0x10
 
     ; load kernel (assumes kernel starts at second sector)

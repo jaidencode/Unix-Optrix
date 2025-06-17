@@ -62,6 +62,7 @@ void screen_put_char(int col, int row, char c, uint8_t color) {
                 put_pixel(x+cx, y+cy, BACKGROUND_COLOR);
         }
     }
+    graphics_flush(x, y, CHAR_WIDTH, CHAR_HEIGHT);
 }
 
 void screen_put_char_offset(int col, int row, char c, uint8_t color,
@@ -79,6 +80,7 @@ void screen_put_char_offset(int col, int row, char c, uint8_t color,
                 put_pixel(x+cx, y+cy, BACKGROUND_COLOR);
         }
     }
+    graphics_flush(x, y, CHAR_WIDTH, CHAR_HEIGHT);
 }
 
 void screen_init(void) {

@@ -21,12 +21,14 @@ void mouse_draw(uint8_t bg_color) {
         for(int dy=0; dy<4; dy++)
             for(int dx=0; dx<4; dx++)
                 put_pixel(prev_x-2+dx, prev_y-2+dy, saved_bg[dy][dx]);
+        graphics_flush(prev_x-2, prev_y-2, 4, 4);
     }
     if(cursor_visible) {
         for(int dy=0; dy<4; dy++)
             for(int dx=0; dx<4; dx++)
                 saved_bg[dy][dx] = get_pixel(mx-2+dx, my-2+dy);
         draw_rect(mx-2, my-2, 4, 4, 0x0F);
+        graphics_flush(mx-2, my-2, 4, 4);
         prev_x = mx; prev_y = my;
     } else {
         prev_x = prev_y = -1;
