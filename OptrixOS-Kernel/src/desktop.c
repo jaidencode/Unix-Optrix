@@ -8,7 +8,7 @@
 #include "terminal.h"
 #include "mem.h"
 
-#define DESKTOP_BG_COLOR 0x17
+#define DESKTOP_BG_COLOR 0x1B /* Windows 95 teal */
 
 static window_t *test_win = 0;
 
