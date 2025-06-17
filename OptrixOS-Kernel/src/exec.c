@@ -2,6 +2,8 @@
 #include <stddef.h>
 #include "screen.h"
 #include "taskbar.h"
+#include "scheduler.h"
+#include "mem.h"
 
 #define MAX_EXECS 10
 
@@ -9,6 +11,17 @@ typedef struct {
     const char* name;
     exec_func_t func;
 } exec_entry;
+
+typedef struct {
+    window_t win;
+    exec_func_t func;
+} exec_task_t;
+
+static void exec_task_func(void *arg) {
+    exec_task_t *t = (exec_task_t*)arg;
+    t->func(&t->win);
+    taskbar_unregister(&t->win);
+}
 
 static exec_entry table[MAX_EXECS];
 static int exec_count = 0;
@@ -33,15 +46,16 @@ void exec_register(const char* name, exec_func_t func) {
 int exec_run(const char* name) {
     for(int i=0;i<exec_count;i++) {
         if(streq(table[i].name, name)) {
-            window_t win;
+            exec_task_t *t = mem_alloc(sizeof(exec_task_t));
+            if(!t) return 0;
             int w = 400, h = 250;
             int x = (SCREEN_WIDTH - w) / 2;
             int y = (SCREEN_HEIGHT - h) / 2;
-            window_init(&win, x, y, w, h, name, 0x07, 0x17);
-            window_draw(&win);
-            taskbar_register(&win);
-            table[i].func(&win);
-            taskbar_unregister(&win);
+            window_init(&t->win, x, y, w, h, name, 0x07, 0x17);
+            window_draw(&t->win);
+            taskbar_register(&t->win);
+            t->func = table[i].func;
+            scheduler_add(exec_task_func, t);
             return 1;
         }
     }

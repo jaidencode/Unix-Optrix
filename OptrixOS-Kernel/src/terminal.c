@@ -33,11 +33,16 @@ static uint8_t text_color = DEFAULT_TEXT_COLOR;
 static fs_entry* current_dir;
 static char current_path[32] = "/";
 
-static void redraw_buffer(void) {
+/* Called whenever the terminal window changes position or size. */
+static void recursive_update_tick(void) {
     for(int y=0; y<term_rows; y++)
         for(int x=0; x<term_cols; x++)
             screen_put_char_offset(x, y, text_buffer[y][x],
                                   color_buffer[y][x], origin_x, origin_y);
+}
+
+void terminal_recursive_update(void) {
+    recursive_update_tick();
 }
 
 void terminal_set_window(window_t *win) {
@@ -59,9 +64,9 @@ void terminal_set_window(window_t *win) {
                 text_buffer[y][x] = ' ';
                 color_buffer[y][x] = BACKGROUND_COLOR;
             }
-        redraw_buffer();
+        recursive_update_tick();
     } else if(old_x != origin_x || old_y != origin_y) {
-        redraw_buffer();
+        recursive_update_tick();
     }
 }
 

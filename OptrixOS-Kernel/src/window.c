@@ -3,6 +3,7 @@
 #include "screen.h"
 #include "mouse.h"
 #include "taskbar.h"
+#include "terminal.h"
 
 static int drag = 0;
 static int resize = 0;
@@ -54,12 +55,13 @@ void window_draw(window_t* win) {
     int show_bar = 1;
     /* shadow */
     draw_rounded_rect(x+2, y+2, w, h, 6, win->bg_color);
-    /* window body */
-    draw_rounded_rect(x, y, w, h, 6, win->color);
+    /* container */
+    draw_rect(x, y+14, w, h-14, win->color);
+    /* top bar with rounded corners */
+    draw_rounded_rect(x, y, w, 14, 6, 0x01);
     /* border */
     draw_rounded_rect(x, y, w, h, 6, 0x08);
     if(show_bar) {
-        draw_rounded_rect(x, y, w, 14, 6, 0x01); /* title bar */
         if(win->title) {
             const char *t = win->title;
             for(int i=0; t[i] && i<20; i++)
@@ -101,9 +103,11 @@ void window_handle_mouse(window_t *win, int mx, int my, int click) {
     } else if(click && drag) {
         win->x += mx - prev_mx; win->y += my - prev_my;
         prev_mx = mx; prev_my = my;
+        terminal_recursive_update();
     } else if(click && resize) {
         win->w += mx - prev_mx; win->h += my - prev_my;
         prev_mx = mx; prev_my = my;
+        terminal_recursive_update();
     } else {
         drag = resize = 0;
     }
