@@ -60,9 +60,6 @@ void fs_init(void) {
     fs_entry readme = {"readme.txt", 0, &root_dir, NULL, 0, "Welcome to OptrixOS"};
     root_entries[root_count++] = readme;
 
-    /* /desktop/terminal.opt executable */
-    fs_entry term = {"terminal.opt", 0, desktop_ptr, NULL, 0, ""};
-    desktop_entries[desktop_count++] = term;
     desktop_ptr->child_count = desktop_count;
 
     root_dir.child_count = root_count;
