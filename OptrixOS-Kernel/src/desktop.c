@@ -9,6 +9,15 @@
 #include "taskbar.h"
 
 #define DESKTOP_BG_COLOR 0x17
+
+static void draw_wallpaper(void) {
+    for(int y=0; y<SCREEN_HEIGHT; y++) {
+        for(int x=0; x<SCREEN_WIDTH; x++) {
+            uint8_t c = ((x/8) ^ (y/8)) & 0x0F;
+            put_pixel(x, y, c | 0x10);
+        }
+    }
+}
 #define MAX_ICONS 20
 
 typedef struct { int x; int y; fs_entry* entry; } icon_t;
@@ -60,14 +69,14 @@ static void refresh_icons(void) {
         icon_count = 0;
         for(int i=0; i<desk->child_count && i<MAX_ICONS; i++)
             icons[icon_count++].entry = &desk->children[i];
-        draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,DESKTOP_BG_COLOR);
+        draw_wallpaper();
         draw_icons();
     }
 }
 
 void desktop_init(void) {
     if(!fs_ready) { fs_init(); fs_ready = 1; }
-    draw_rect(0,0,SCREEN_WIDTH,SCREEN_HEIGHT,DESKTOP_BG_COLOR);
+    draw_wallpaper();
     fs_entry* root = fs_get_root();
     fs_entry* desk = fs_find_subdir(root, "desktop");
     icon_count = 0;

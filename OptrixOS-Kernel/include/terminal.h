@@ -4,4 +4,6 @@
 void terminal_init(void);
 void terminal_run(window_t *win);
 void terminal_set_window(window_t *win);
+/* Redraw the entire terminal buffer. */
+void terminal_recursive_update(void);
 #endif

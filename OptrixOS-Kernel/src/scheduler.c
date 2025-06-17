@@ -24,8 +24,10 @@ int scheduler_add(task_func_t func, void *arg) {
 }
 
 void scheduler_run(void) {
-    for(int i = 0; i < task_count; i++) {
-        if(tasks[i].func)
-            tasks[i].func(tasks[i].arg);
+    while(1) {
+        for(int i = 0; i < task_count; i++) {
+            if(tasks[i].func)
+                tasks[i].func(tasks[i].arg);
+        }
     }
 }
