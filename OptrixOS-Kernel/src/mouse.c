@@ -10,7 +10,21 @@ static int clicked = 0;
 static int mouse_present = 0;
 static int cursor_visible = 1;
 static int prev_x = -1, prev_y = -1;
-static uint8_t saved_bg[4][4];
+#define CURSOR_W 6
+#define CURSOR_H 9
+static uint8_t saved_bg[CURSOR_H][CURSOR_W];
+
+static const uint8_t cursor_shape[CURSOR_H] = {
+    0b100000,
+    0b110000,
+    0b111000,
+    0b111100,
+    0b111110,
+    0b111111,
+    0b011110,
+    0b001100,
+    0b000000
+};
 
 void mouse_set_visible(int vis) { cursor_visible = vis; }
 int mouse_get_visible(void) { return cursor_visible; }
@@ -18,15 +32,20 @@ int mouse_get_visible(void) { return cursor_visible; }
 void mouse_draw(uint8_t bg_color) {
     (void)bg_color;
     if(prev_x != -1 && prev_y != -1 && cursor_visible) {
-        for(int dy=0; dy<4; dy++)
-            for(int dx=0; dx<4; dx++)
-                put_pixel(prev_x-2+dx, prev_y-2+dy, saved_bg[dy][dx]);
+        for(int dy=0; dy<CURSOR_H; dy++)
+            for(int dx=0; dx<CURSOR_W; dx++)
+                put_pixel(prev_x+dx, prev_y+dy, saved_bg[dy][dx]);
     }
     if(cursor_visible) {
-        for(int dy=0; dy<4; dy++)
-            for(int dx=0; dx<4; dx++)
-                saved_bg[dy][dx] = get_pixel(mx-2+dx, my-2+dy);
-        draw_rect(mx-2, my-2, 4, 4, 0x0F);
+        for(int dy=0; dy<CURSOR_H; dy++)
+            for(int dx=0; dx<CURSOR_W; dx++)
+                saved_bg[dy][dx] = get_pixel(mx+dx, my+dy);
+        for(int dy=0; dy<CURSOR_H; dy++) {
+            for(int dx=0; dx<CURSOR_W; dx++) {
+                if(cursor_shape[dy] & (1 << (CURSOR_W-1-dx)))
+                    put_pixel(mx+dx, my+dy, 0x0F);
+            }
+        }
         prev_x = mx; prev_y = my;
     } else {
         prev_x = prev_y = -1;
