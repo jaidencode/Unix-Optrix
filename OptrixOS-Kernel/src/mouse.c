@@ -10,46 +10,67 @@ static int clicked = 0;
 static int mouse_present = 0;
 static int cursor_visible = 1;
 static int prev_x = -1, prev_y = -1;
-#define CURSOR_W 6
-#define CURSOR_H 9
+#define CURSOR_W 8
+#define CURSOR_H 12
 static uint8_t saved_bg[CURSOR_H][CURSOR_W];
 
 static const uint8_t cursor_shape[CURSOR_H] = {
-    0b100000,
-    0b110000,
-    0b111000,
-    0b111100,
-    0b111110,
-    0b111111,
-    0b011110,
-    0b001100,
-    0b000000
+    0x80,
+    0xC0,
+    0xE0,
+    0xF0,
+    0xF8,
+    0xFC,
+    0xFE,
+    0x7C,
+    0x38,
+    0x30,
+    0x00,
+    0x00
+};
+
+static const uint8_t cursor_outline[CURSOR_H] = {
+    0xE0,
+    0xF0,
+    0xF8,
+    0xFC,
+    0xFE,
+    0xFF,
+    0xFF,
+    0xFF,
+    0xFE,
+    0x7C,
+    0x78,
+    0x00
 };
 
 void mouse_set_visible(int vis) { cursor_visible = vis; }
 int mouse_get_visible(void) { return cursor_visible; }
 
-void mouse_draw(uint8_t bg_color) {
-    (void)bg_color;
+void mouse_clear(void) {
     if(prev_x != -1 && prev_y != -1 && cursor_visible) {
         for(int dy=0; dy<CURSOR_H; dy++)
             for(int dx=0; dx<CURSOR_W; dx++)
                 put_pixel(prev_x+dx, prev_y+dy, saved_bg[dy][dx]);
+        prev_x = -1;
+        prev_y = -1;
     }
-    if(cursor_visible) {
-        for(int dy=0; dy<CURSOR_H; dy++)
-            for(int dx=0; dx<CURSOR_W; dx++)
-                saved_bg[dy][dx] = get_pixel(mx+dx, my+dy);
-        for(int dy=0; dy<CURSOR_H; dy++) {
-            for(int dx=0; dx<CURSOR_W; dx++) {
-                if(cursor_shape[dy] & (1 << (CURSOR_W-1-dx)))
-                    put_pixel(mx+dx, my+dy, 0x0F);
-            }
-        }
-        prev_x = mx; prev_y = my;
-    } else {
-        prev_x = prev_y = -1;
-    }
+}
+
+void mouse_draw(void) {
+    if(!cursor_visible) return;
+    for(int dy=0; dy<CURSOR_H; dy++)
+        for(int dx=0; dx<CURSOR_W; dx++)
+            saved_bg[dy][dx] = get_pixel(mx+dx, my+dy);
+    for(int dy=0; dy<CURSOR_H; dy++)
+        for(int dx=0; dx<CURSOR_W; dx++)
+            if(cursor_outline[dy] & (1 << (CURSOR_W-1-dx)))
+                put_pixel(mx+dx, my+dy, 0x00);
+    for(int dy=0; dy<CURSOR_H; dy++)
+        for(int dx=0; dx<CURSOR_W; dx++)
+            if(cursor_shape[dy] & (1 << (CURSOR_W-1-dx)))
+                put_pixel(mx+dx, my+dy, 0x0F);
+    prev_x = mx; prev_y = my;
 }
 
 static void mouse_wait_input(void) {

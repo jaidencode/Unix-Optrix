@@ -22,19 +22,19 @@ void desktop_init(void) {
     taskbar_init();
     draw_wallpaper();
     container_init();
-    test_win = container_create(96, 72, 512, 336, "Test Window", 0x0F, 0x17);
+    test_win = container_create(96, 72, 512, 336, "Test Window", 0x02, 0x00);
     terminal_set_window(test_win);
 }
 
 void desktop_run(void) {
     mouse_init();
     mouse_set_visible(1);
-    mouse_draw(DESKTOP_BG_COLOR);
     while(1) {
         mouse_update();
+        mouse_clear();
         container_handle_mouse(mouse_get_x(), mouse_get_y(), mouse_clicked());
         container_draw();
-        mouse_draw(DESKTOP_BG_COLOR);
+        mouse_draw();
     }
 }
 

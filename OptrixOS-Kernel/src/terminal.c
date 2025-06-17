@@ -175,14 +175,15 @@ static void read_line(char* buf, size_t max, window_t *win) {
     int blink = 0;
     cursor_on = 1;
     draw_cursor(1);
-    mouse_draw(BACKGROUND_COLOR);
+    mouse_draw();
     while(idx < max-1) {
         mouse_update();
+        mouse_clear();
         window_handle_mouse(win, mouse_get_x(), mouse_get_y(), mouse_clicked());
         if(!win->visible) { buf[0] = '\0'; break; }
         terminal_set_window(win);
         window_draw(win);
-        mouse_draw(BACKGROUND_COLOR);
+        mouse_draw();
         char c = keyboard_getchar();
         if(!c) {
             blink++;
@@ -227,7 +228,7 @@ static void read_line(char* buf, size_t max, window_t *win) {
         buf[idx++] = c;
     }
     draw_cursor(0);
-    mouse_draw(BACKGROUND_COLOR);
+    mouse_draw();
     buf[idx] = '\0';
 }
 
@@ -600,7 +601,7 @@ static void execute(const char* line) {
 void terminal_run(window_t *win) {
     char buf[128];
     mouse_set_visible(1);
-    mouse_draw(BACKGROUND_COLOR);
+    mouse_draw();
     while(win->visible) {
         print("> ");
         read_line(buf, sizeof(buf), win);
