@@ -7,5 +7,7 @@ void* mem_alloc(size_t size);
 size_t mem_total(void);
 size_t mem_used(void);
 size_t mem_free(void);
+void *memcpy(void *dest, const void *src, size_t n);
+void *memset(void *dest, int c, size_t n);
 
 #endif

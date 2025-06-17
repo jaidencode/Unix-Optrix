@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "windows31_svg.h"
 #include <stddef.h>
 
 static int streq(const char* a, const char* b) {
@@ -59,6 +60,11 @@ void fs_init(void) {
     /* simple readme */
     fs_entry readme = {"readme.txt", 0, &root_dir, NULL, 0, "Welcome to OptrixOS"};
     root_entries[root_count++] = readme;
+
+    /* embedded svg example */
+    fs_entry svg = {"demo.svg", 0, &root_dir, NULL, 0, ""};
+    fs_write_file(&svg, windows31_svg);
+    root_entries[root_count++] = svg;
 
     desktop_ptr->child_count = desktop_count;
 
@@ -127,7 +133,7 @@ int fs_delete_entry(fs_entry* dir, const char* name) {
 void fs_write_file(fs_entry* file, const char* text) {
     if(!file || file->is_dir) return;
     int k = 0;
-    while(text[k] && k < 255) {
+    while(text[k] && k < FS_CONTENT_MAX-1) {
         file->content[k] = text[k];
         k++;
     }

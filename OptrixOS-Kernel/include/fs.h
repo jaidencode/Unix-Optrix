@@ -1,13 +1,16 @@
 #ifndef FS_H
 #define FS_H
 
+/* Maximum file size in bytes. Increased to allow simple SVG assets. */
+#define FS_CONTENT_MAX 8192
+
 typedef struct fs_entry {
     char name[32];
     int is_dir;
     struct fs_entry* parent;
     struct fs_entry* children;
     int child_count;
-    char content[256];
+    char content[FS_CONTENT_MAX];
 } fs_entry;
 
 fs_entry* fs_find_entry(fs_entry* dir, const char* name);
@@ -15,7 +18,7 @@ fs_entry* fs_create_file(fs_entry* dir, const char* name);
 fs_entry* fs_create_dir(fs_entry* dir, const char* name);
 int fs_delete_entry(fs_entry* dir, const char* name);
 
-/* Write text content to a file entry. Text is truncated to 255 chars. */
+/* Write text content to a file entry. Text is truncated to FS_CONTENT_MAX-1 bytes. */
 void fs_write_file(fs_entry* file, const char* text);
 
 /* Read the content of a file entry. Returns empty string for directories */

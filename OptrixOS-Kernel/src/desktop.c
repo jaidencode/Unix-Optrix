@@ -3,6 +3,8 @@
 #include "graphics.h"
 #include "mouse.h"
 #include "fs.h"
+#include "svg.h"
+#include "windows31_svg.h"
 
 #define DESKTOP_BG_COLOR 0x17
 
@@ -40,7 +42,7 @@ static void draw_demo_window(void) {
 void desktop_init(void) {
     fs_init();
     draw_wallpaper();
-    draw_demo_window();
+    svg_render(windows31_svg);
 }
 
 void desktop_run(void) {
@@ -56,5 +58,5 @@ void desktop_run(void) {
 void desktop_redraw_region(int x, int y, int w, int h) {
     (void)x; (void)y; (void)w; (void)h;
     draw_wallpaper();
-    draw_demo_window();
+    svg_render(windows31_svg);
 }

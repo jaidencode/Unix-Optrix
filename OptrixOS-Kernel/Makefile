@@ -1,11 +1,11 @@
-CFLAGS=-ffreestanding -fno-pie -fno-pic -m32 -Iinclude
+			CFLAGS=-ffreestanding -fno-pie -fno-pic -m32 -Iinclude
 	
 all: disk.img
 	
 bootloader.bin: asm/bootloader.asm
 	@nasm -f bin $< -o $@
 	
-kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboard.o src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o src/driver.o src/mem.o src/kernel_main.o
+kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboard.o src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o src/driver.o src/mem.o src/svg.o src/windows31_svg.o src/kernel_main.o
 	@nasm -f elf32 asm/kernel.asm -o kernel_asm.o
 	@nasm -f elf32 asm/ports.asm -o ports.o
 	@gcc $(CFLAGS) -c src/graphics.c -o src/graphics.o
@@ -18,11 +18,13 @@ kernel.bin: asm/kernel.asm asm/ports.asm src/graphics.o src/screen.o src/keyboar
 	@gcc $(CFLAGS) -c src/mouse.c -o src/mouse.o
 	@gcc $(CFLAGS) -c src/driver.c -o src/driver.o
 	@gcc $(CFLAGS) -c src/mem.c -o src/mem.o
+	@gcc $(CFLAGS) -c src/svg.c -o src/svg.o
+	@gcc $(CFLAGS) -c src/windows31_svg.c -o src/windows31_svg.o
 	@gcc $(CFLAGS) -c src/kernel_main.c -o src/kernel_main.o
-    @ld -m elf_i386 -Ttext 0x1000 kernel_asm.o ports.o \
-    src/graphics.o src/screen.o src/keyboard.o \
-    src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o \
-    src/driver.o src/mem.o src/kernel_main.o --oformat binary -o $@
+	@ld -m elf_i386 -Ttext 0x1000 kernel_asm.o ports.o \
+src/graphics.o src/screen.o src/keyboard.o \
+src/fs.o src/boot_logo.o src/login.o src/desktop.o src/mouse.o \
+src/driver.o src/mem.o src/svg.o src/windows31_svg.o src/kernel_main.o --oformat binary -o $@
 	
 disk.img: bootloader.bin kernel.bin
 	@cat bootloader.bin kernel.bin > $@
