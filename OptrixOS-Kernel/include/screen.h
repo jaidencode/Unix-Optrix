@@ -21,6 +21,8 @@ void screen_clear(void);
 void screen_put_char(int col, int row, char c, uint8_t color);
 void screen_put_char_offset(int col, int row, char c, uint8_t color,
                             int off_x, int off_y);
+void screen_put_char_offset_transparent(int col, int row, char c, uint8_t color,
+                                        int off_x, int off_y);
 void screen_update_metrics(void);
 void screen_adjust_font_scale(int delta);
 

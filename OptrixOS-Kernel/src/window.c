@@ -70,12 +70,14 @@ void window_draw(window_t* win) {
     const uint8_t highlight = 0x0F;/* white */
     const uint8_t shadow = 0x08;   /* dark grey */
 
-    /* outer frame */
-    draw_rect(x, y, w, h, border);
-    draw_rect(x, y, w, 1, highlight);          /* top highlight */
-    draw_rect(x, y, 1, h, highlight);          /* left highlight */
-    draw_rect(x, y+h-1, w, 1, shadow);         /* bottom shadow */
-    draw_rect(x+w-1, y, 1, h, shadow);         /* right shadow */
+    /* outer frame with rounded corners */
+    draw_rounded_rect(x, y, w, h, 5, border);
+    draw_rounded_rect(x+1, y+1, w-2, h-2, 4, highlight);
+    draw_rounded_rect(x+2, y+2, w-4, h-4, 4, border);
+    draw_rect(x+2, y+2, w-4, 1, highlight);
+    draw_rect(x+2, y+2, 1, h-4, highlight);
+    draw_rect(x+2, y+h-3, w-4, 1, shadow);
+    draw_rect(x+w-3, y+2, 1, h-4, shadow);
 
     /* title bar */
     draw_rect(x+2, y+2, w-4, bar_h-2, border);
@@ -90,7 +92,7 @@ void window_draw(window_t* win) {
         int len=0; while(win->title[len]) len++;
         int tx = x + (w - len*CHAR_WIDTH)/2;
         for(int c=0;c<len;c++)
-            screen_put_char_offset(c,0,win->title[c],0x0F,tx, y+6);
+            screen_put_char_offset_transparent(c,0,win->title[c],0x0F,tx, y+6);
     }
 
     draw_buttons(x+w-4, y+2);
