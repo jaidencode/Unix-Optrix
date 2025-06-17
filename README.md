@@ -46,6 +46,13 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+## Windows 3.1 style desktop
+
+The repository includes an SVG mockup of a Windows 3.1 era Program Manager
+environment. It demonstrates the classic 3D widgets and menu bar design.
+
+![Program Manager mockup](windows31_program_manager.svg)
+
 ## Built-in terminal
 
 After boot a login prompt asks for the admin password (`admin1`). Once logged
