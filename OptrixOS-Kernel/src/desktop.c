@@ -108,6 +108,7 @@ void desktop_run(void) {
                     break;
                 }
             }
+            taskbar_handle_click(mx, my);
         } else {
             if(click_timer>0) click_timer++;
             if(click_timer>30){ click_timer=0; last_clicked=-1; }

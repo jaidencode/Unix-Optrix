@@ -17,3 +17,7 @@ void* mem_alloc(size_t size) {
     heap_used += size;
     return ptr;
 }
+size_t mem_total(void) { return heap_size; }
+size_t mem_used(void) { return heap_used; }
+size_t mem_free(void) { return heap_size > heap_used ? heap_size - heap_used : 0; }
+

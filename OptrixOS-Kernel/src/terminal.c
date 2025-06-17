@@ -3,6 +3,7 @@
 #include "screen.h"
 #include "mouse.h"
 #include "fs.h"
+#include "mem.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -250,6 +251,7 @@ static void cmd_help(void) {
     print("whoami     - display current user\n");
     print("hello      - greet the user\n");
     print("uptime     - show uptime counter\n");
+    print("meminfo    - show memory usage\n");
 }
 
 static void cmd_clear(void) {
@@ -340,6 +342,16 @@ static void cmd_uptime(void) {
     print("Uptime: ");
     print_int(uptime_counter);
     print(" ticks\n");
+}
+
+static void cmd_meminfo(void) {
+    print("Total: ");
+    print_int(mem_total());
+    print(" bytes, Used: ");
+    print_int(mem_used());
+    print(" bytes, Free: ");
+    print_int(mem_free());
+    print(" bytes\n");
 }
 
 #include "fs.h"
@@ -571,6 +583,8 @@ static void execute(const char* line) {
         cmd_hello();
     } else if(streq(line, "uptime")) {
         cmd_uptime();
+    } else if(streq(line, "meminfo")) {
+        cmd_meminfo();
     } else if(streq(line, "ls")) {
         cmd_dir();
     } else if(line[0]) {

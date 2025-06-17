@@ -49,3 +49,23 @@ void taskbar_draw(void) {
         }
     }
 }
+
+void taskbar_handle_click(int x, int y) {
+    const int bar_h = 16;
+    if(y < SCREEN_HEIGHT - bar_h)
+        return;
+    if(task_count == 0)
+        return;
+    int w = SCREEN_WIDTH / task_count;
+    int idx = x / w;
+    if(idx >= task_count)
+        return;
+    window_t *win = tasks[idx];
+    if(win->state == 2) {
+        win->state = 0;
+        window_draw(win);
+    } else {
+        win->state = 2;
+        window_draw(win);
+    }
+}
