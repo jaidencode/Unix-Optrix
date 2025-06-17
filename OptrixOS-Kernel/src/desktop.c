@@ -17,24 +17,48 @@ static void draw_demo_window(void) {
     const int y = 48;
     const int w = 512;
     const int h = 336;
-    const uint8_t hl = 0x0F; /* highlight */
-    const uint8_t sh = 0x08; /* shadow */
-    const uint8_t mid = 0x07; /* medium grey */
 
-    /* outer frame */
-    draw_rect(x, y, w, 2, hl);
-    draw_rect(x, y, 2, h, hl);
-    draw_rect(x, y+h-2, w, 2, sh);
-    draw_rect(x+w-2, y, 2, h, sh);
+    /* basic colour approximations */
+    const uint8_t frame      = 0x08; /* charcoal border */
+    const uint8_t highlight  = 0x0F; /* bright white */
+    const uint8_t shadow     = 0x07; /* mid grey */
+    const uint8_t title_col1 = 0x0E; /* light gradient start */
+    const uint8_t title_col2 = 0x0D; /* light gradient end */
+    const uint8_t client_bg  = 0x0F; /* white */
 
-    /* inner ridge */
-    draw_rect(x+2, y+2, w-4, 1, mid);
-    draw_rect(x+2, y+2, 1, h-4, mid);
-    draw_rect(x+3, y+h-3, w-4, 1, mid);
-    draw_rect(x+w-3, y+2, 1, h-4, mid);
+    /* outer border */
+    draw_rect(x, y, w, 1, frame);                    /* top    */
+    draw_rect(x, y, 1, h, frame);                    /* left   */
+    draw_rect(x, y+h-1, w, 1, frame);                /* bottom */
+    draw_rect(x+w-1, y, 1, h, frame);                /* right  */
 
-    /* client area */
-    draw_rect(x+3, y+3, w-6, h-6, mid);
+    /* highlight/shadow lines for bevel */
+    draw_rect(x+1, y+1, w-2, 1, highlight);          /* top    */
+    draw_rect(x+1, y+1, 1, h-2, highlight);          /* left   */
+    draw_rect(x+1, y+h-2, w-2, 1, shadow);           /* bottom */
+    draw_rect(x+w-2, y+1, 1, h-2, shadow);           /* right  */
+
+    /* title bar (28px high including rule) */
+    for(int i=0; i<27; i++) {
+        uint8_t c = (i < 14) ? title_col1 : title_col2;
+        draw_rect(x+1, y+1+i, w-2, 1, c);
+    }
+    draw_rect(x+1, y+27, w-2, 1, shadow); /* separator */
+
+    /* client background */
+    draw_rect(x+1, y+28, w-2, h-29, client_bg);
+
+    /* window title */
+    const char *title = "Test Window";
+    for(int c=0; title[c]; c++)
+        screen_put_char_offset(c, 0, title[c], frame, x+12, y+10);
+
+    /* control icons */
+    int btn_y = y + 6;
+    int bx = x + w - 64;             /* 3 buttons + spacing + margin */
+    draw_rect(bx,      btn_y, 16, 16, frame);  /* minimize */
+    draw_rect(bx + 20, btn_y, 16, 16, frame);  /* maximize */
+    draw_rect(bx + 40, btn_y, 16, 16, frame);  /* close    */
 }
 
 void desktop_init(void) {
