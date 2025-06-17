@@ -54,16 +54,35 @@ void window_draw(window_t* win) {
         return;
     }
 
-    int show_bar = 1;
-    /* shadow */
-    draw_rounded_rect(x+2, y+2, w, h, 6, win->bg_color);
-    /* container */
-    draw_rect(x, y+14, w, h-14, win->color);
-    /* top bar with rounded corners */
-    draw_rounded_rect(x, y, w, 14, 6, 0x01);
-    if(show_bar) {
-        draw_buttons(x+w, y);
+    int bar_h = 16;
+    const uint8_t border = 0x07;   /* grey */
+    const uint8_t highlight = 0x0F;/* white */
+    const uint8_t shadow = 0x08;   /* dark grey */
+
+    /* outer frame */
+    draw_rect(x, y, w, h, border);
+    draw_rect(x, y, w, 1, highlight);          /* top highlight */
+    draw_rect(x, y, 1, h, highlight);          /* left highlight */
+    draw_rect(x, y+h-1, w, 1, shadow);         /* bottom shadow */
+    draw_rect(x+w-1, y, 1, h, shadow);         /* right shadow */
+
+    /* title bar */
+    draw_rect(x+2, y+2, w-4, bar_h-2, border);
+    draw_rect(x+2, y+2, w-4, 1, highlight);
+    draw_rect(x+2, y+bar_h-1, w-4, 1, shadow);
+
+    /* client area */
+    draw_rect(x+2, y+bar_h, w-4, h-bar_h-2, win->color);
+
+    /* window title centered */
+    if(win->title) {
+        int len=0; while(win->title[len]) len++;
+        int tx = x + (w - len*CHAR_WIDTH)/2;
+        for(int c=0;c<len;c++)
+            screen_put_char_offset(c,0,win->title[c],0x00,tx, y+4);
     }
+
+    draw_buttons(x+w-4, y+2);
 }
 
 void window_handle_mouse(window_t *win, int mx, int my, int click) {
