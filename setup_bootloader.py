@@ -103,9 +103,9 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     kern = open(kernel_bin, "rb").read()
     total = 512 + len(kern)
     min_size = 1474560  # 1.44MB
-    img_size = roundup(total, 2048)
+    img_size = roundup(total, 512)
     if img_size < min_size:
-        img_size = roundup(min_size, 2048)
+        img_size = min_size
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
