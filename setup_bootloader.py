@@ -3,6 +3,7 @@ import sys
 import os
 import shutil
 import stat
+import argparse
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -292,7 +293,7 @@ def cleanup():
     if os.path.exists(OBJ_DIR):
         shutil.rmtree(OBJ_DIR, onerror=on_rm_error)
 
-def main():
+def main(skip_iso=False):
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
@@ -304,8 +305,9 @@ def main():
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
     make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
-    copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
-    make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
+    if not skip_iso:
+        copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
+        make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
     print("\nCleaning up temporary build files... (ISO is NEVER deleted)")
     for f in tmp_files:
@@ -318,7 +320,13 @@ def main():
     if os.path.exists(TMP_ISO_DIR):
         shutil.rmtree(TMP_ISO_DIR, onerror=on_rm_error)
     cleanup()
-    print(f"\nBuild complete! Bootable ISO is at: {OUTPUT_ISO}")
+    if not skip_iso:
+        print(f"\nBuild complete! Bootable ISO is at: {OUTPUT_ISO}")
+    else:
+        print("\nBuild complete! Disk image created.")
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="Build OptrixOS")
+    parser.add_argument("--skip-iso", action="store_true", help="Skip ISO generation")
+    opts = parser.parse_args()
+    main(skip_iso=opts.skip_iso)

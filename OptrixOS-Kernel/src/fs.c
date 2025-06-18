@@ -149,3 +149,62 @@ const char* fs_read_file(fs_entry* file) {
     if(!file || file->is_dir) return "";
     return file->content;
 }
+
+static const char* next_segment(const char* path, char* seg, int max) {
+    int i = 0;
+    while(*path == '/') path++;
+    while(*path && *path != '/' && i < max-1) {
+        seg[i++] = *path++;
+    }
+    seg[i] = '\0';
+    while(*path == '/') path++;
+    return path;
+}
+
+fs_entry* fs_resolve_path(fs_entry* start, const char* path) {
+    if(!path || !start) return NULL;
+    if(path[0] == '/') {
+        start = &root_dir;
+    }
+    while(*path == '/') path++;
+    char seg[32];
+    const char* p = path;
+    while(*p) {
+        p = next_segment(p, seg, sizeof(seg));
+        if(seg[0] == '\0' || (seg[0] == '.' && seg[1] == '\0')) {
+            /* no-op */
+        } else if(seg[0] == '.' && seg[1] == '.' && seg[2] == '\0') {
+            if(start->parent)
+                start = start->parent;
+        } else {
+            fs_entry* e = fs_find_entry(start, seg);
+            if(!e) return NULL;
+            start = e;
+        }
+    }
+    return start;
+}
+
+void fs_get_path(fs_entry* entry, char* out, int max) {
+    if(!entry || max <= 0) { if(max>0) out[0]='\0'; return; }
+    if(entry == &root_dir) {
+        if(max >= 2) { out[0] = '/'; out[1] = '\0'; }
+        else if(max>=1) out[0] = '\0';
+        return;
+    }
+    int pos = 0;
+    fs_entry* stack[16];
+    int top = 0;
+    for(fs_entry* e = entry; e && e != &root_dir && top < 16; e = e->parent) {
+        stack[top++] = e;
+    }
+    if(max > 1) out[pos++] = '/';
+    for(int i = top - 1; i >= 0; i--) {
+        const char* n = stack[i]->name;
+        for(int j = 0; n[j] && pos < max - 1; j++)
+            out[pos++] = n[j];
+        if(i > 0 && pos < max - 1)
+            out[pos++] = '/';
+    }
+    out[pos] = '\0';
+}
