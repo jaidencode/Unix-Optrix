@@ -266,6 +266,9 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         "-quiet",
         "-o", iso_out,
         "-b", "disk.img",
+        "-no-emul-boot",
+        "-boot-load-size", str((os.path.getsize(os.path.join(tmp_iso_dir, "disk.img")) + 511) // 512),
+        "-boot-info-table",
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
