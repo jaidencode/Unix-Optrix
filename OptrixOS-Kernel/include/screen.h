@@ -5,7 +5,7 @@
 
 #define SCREEN_COLS 80
 #define SCREEN_ROWS 25
-#define BACKGROUND_COLOR 0x07
+#define BACKGROUND_COLOR 0x1F
 
 void screen_init(void);
 void screen_clear(void);

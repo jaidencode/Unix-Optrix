@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#define DEFAULT_COLOR 0x07
+#define DEFAULT_COLOR 0x1E
 
 static int row = 0;
 static int col = 0;
@@ -86,6 +86,8 @@ static void cmd_date(void);
 static void cmd_uptime(void);
 static void cmd_shutdown(void);
 static void cmd_ver(void);
+static void cmd_whoami(void);
+static void cmd_banner(void);
 
 static unsigned int uptime = 0;
 static fs_entry* current_dir;
@@ -95,7 +97,7 @@ static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b) return 0;a+
 static int strprefix(const char*s,const char*p){while(*p){if(*s!=*p) return 0;s++;p++;}return 1;}
 
 static void cmd_help(void){
-    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp rand date uptime ver shutdown\n");
+    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp rand date uptime ver whoami banner shutdown\n");
 }
 
 static void cmd_clear(void){screen_clear(); row=col=0;}
@@ -122,6 +124,8 @@ static void cmd_date(void){print("Build: " __DATE__ " " __TIME__ "\n");}
 static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
 static void cmd_shutdown(void){print("Shutdown\n");while(1){__asm__("hlt");}}
 static void cmd_ver(void){print("OptrixOS 0.1 text\n");}
+static void cmd_whoami(void){print("root\n");}
+static void cmd_banner(void){fs_entry*f=fs_find_entry(fs_get_root(),"logo.txt");if(f){print(fs_read_file(f));put_char('\n');}}
 
 static void execute(const char*line){
     if(streq(line,"help")) cmd_help();
@@ -144,6 +148,8 @@ static void execute(const char*line){
     else if(streq(line,"date")||streq(line,"time")) cmd_date();
     else if(streq(line,"uptime")) cmd_uptime();
     else if(streq(line,"ver")) cmd_ver();
+    else if(streq(line,"whoami")) cmd_whoami();
+    else if(streq(line,"banner")) cmd_banner();
     else if(streq(line,"shutdown")||streq(line,"exit")) cmd_shutdown();
     else if(line[0]) print("Unknown\n");
 }
@@ -152,6 +158,11 @@ void terminal_init(void){
     screen_clear();
     fs_init();
     current_dir=fs_get_root();
+    fs_entry* logo = fs_find_entry(current_dir, "logo.txt");
+    if(logo) {
+        print(fs_read_file(logo));
+        put_char('\n');
+    }
 }
 
 void terminal_run(void){

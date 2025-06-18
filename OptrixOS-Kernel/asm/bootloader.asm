@@ -17,6 +17,19 @@ start:
     mov ax, 0x0003
     int 0x10
 
+    ; display boot message
+    mov si, bootmsg
+.printloop:
+    lodsb
+    or al, al
+    jz .doneprint
+    mov ah, 0x0E
+    mov bh, 0x00
+    mov bl, 0x1E
+    int 0x10
+    jmp .printloop
+.doneprint:
+
     ; load kernel (assumes kernel starts at second sector)
     mov bx, 0x1000    ; ES:BX points to load address
     mov dl, [BOOT_DRIVE]
@@ -64,6 +77,8 @@ gdt_desc:
     dd gdt_start
 
 BOOT_DRIVE: db 0
+
+bootmsg: db 'Loading OptrixOS...',0
 
     ; boot signature
     times 510-($-$$) db 0

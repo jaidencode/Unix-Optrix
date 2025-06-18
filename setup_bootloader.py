@@ -130,7 +130,36 @@ def collect_source_files(rootdir):
 
 # === BINARY RESOURCE EMBEDDING LOGIC ===
 # No binary resources for the text mode build
+RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
+GENERATED_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "resources.c")
+GENERATED_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "resources.h")
 resource_bin_files = []
+
+def generate_resource_files():
+    if not os.path.isdir(RESOURCE_DIR):
+        return
+    entries = []
+    for root, _, files in os.walk(RESOURCE_DIR):
+        for f in files:
+            path = os.path.join(root, f)
+            rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
+            with open(path, "r", errors="ignore") as fh:
+                data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+            entries.append((rel, data))
+    with open(GENERATED_H, "w") as h:
+        h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
+        h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
+        h.write("extern const int resource_files_count;\n")
+        h.write("extern const resource_file resource_files[];\n")
+        h.write("#endif\n")
+    with open(GENERATED_C, "w") as c:
+        c.write('#include "resources.h"\n')
+        c.write("const resource_file resource_files[] = {\n")
+        for name, data in entries:
+            c.write(f'    {{"{name}", "{data}"}},\n')
+        c.write("};\n")
+        c.write(f"const int resource_files_count = {len(entries)};\n")
+    return GENERATED_C
 
 def objcopy_binary(input_path, output_obj):
     if not os.path.exists(input_path):
@@ -268,6 +297,10 @@ def main():
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
+    res_c = generate_resource_files()
+    if res_c and res_c not in c_files:
+        c_files.append(res_c)
+    c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
     make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
