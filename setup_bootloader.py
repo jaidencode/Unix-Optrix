@@ -28,7 +28,10 @@ if not shutil.which(OBJDUMP):
 CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR") or r"C:\\Program Files (x86)\\cdrtools"
 MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs.exe")
 if not os.path.isfile(MKISOFS_EXE):
-    MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
+    # Check both mkisofs and genisoimage which provides mkisofs on many systems
+    MKISOFS_EXE = (shutil.which("mkisofs") or
+                   shutil.which("genisoimage") or
+                   "mkisofs")
 
 # Only build sources inside the kernel directory
 KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"

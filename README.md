@@ -35,8 +35,9 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
-If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
-script outputs `disk.img` which can be run with:
+If `mkisofs` (or the compatible `genisoimage`) is available an ISO named
+`OptrixOS.iso` is created. Otherwise the script outputs `disk.img` which can be
+run with:
 
 ```bash
 qemu-system-x86_64 -hda disk.img
