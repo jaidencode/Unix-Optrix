@@ -30,14 +30,72 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at second sector)
+    ; load kernel starting at sector 2 using INT 13h extensions
+    xor ax, ax
+    mov es, ax
     mov bx, 0x1000    ; ES:BX points to load address
     mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+
+    mov dword [remaining], KERNEL_SECTORS
+    mov dword [lba], 2
+
+.load_loop:
+    mov eax, [remaining]
+    test eax, eax
+    jz .done_load
+    cmp eax, 127
+    jbe .less_than_max
+    mov cx, 127
+    jmp .set_count
+.less_than_max:
+    mov cx, ax
+.set_count:
+    mov word [dap+2], cx        ; sectors to read
+    mov word [dap+4], bx        ; offset
+    mov word [dap+6], es        ; segment
+    mov eax, [lba]
+    mov dword [dap+8], eax      ; LBA low
+    mov dword [dap+12], 0       ; LBA high
+    mov ah, 0x42
+    mov si, dap
     int 0x13
+    jc .disk_error
+    ; advance pointers
+    mov ax, cx
+    shl ax, 9                   ; bytes = sectors * 512
+    add bx, ax
+    jc .inc_seg
+    jmp .no_inc
+.inc_seg:
+    push ax
+    mov ax, es
+    inc ax
+    mov es, ax
+    pop ax
+.no_inc:
+    movzx eax, cx
+    add dword [lba], eax
+    sub dword [remaining], eax
+    jmp .load_loop
+
+.disk_error:
+    mov si, errormsg
+.err_print:
+    lodsb
+    or al, al
+    jz .error_halt
+    mov ah, 0x0E
+    mov bh, 0x00
+    mov bl, 0x4F
+    int 0x10
+    jmp .err_print
+
+.error_halt:
+    cli
+    hlt
+    jmp .error_halt
+
+.done_load:
 
     ; setup basic GDT for protected mode
     lgdt [gdt_desc]
@@ -77,6 +135,19 @@ gdt_desc:
     dd gdt_start
 
 BOOT_DRIVE: db 0
+
+remaining: dd 0
+lba: dd 0
+dap:
+    db 0x10     ; size
+    db 0
+    dw 0        ; sector count (filled in at runtime)
+    dw 0        ; offset
+    dw 0        ; segment
+    dd 0        ; LBA low
+    dd 0        ; LBA high
+
+errormsg: db 'Disk read error',0
 
 bootmsg: db 'Loading OptrixOS...',0
 
