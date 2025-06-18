@@ -25,4 +25,11 @@ void fs_init(void);
 fs_entry* fs_get_root(void);
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name);
 
+/* Resolve a path starting at the given directory. Handles '.', '..' and
+   absolute paths beginning with '/'. Returns NULL on failure. */
+fs_entry* fs_resolve(fs_entry* start, const char* path);
+
+/* Build the full path of an entry into the provided buffer. */
+void fs_get_path(fs_entry* entry, char* out, int max_len);
+
 #endif

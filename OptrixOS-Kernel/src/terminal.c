@@ -111,9 +111,17 @@ static void cmd_mul(const char*args){int a,b;parse_two_ints(args,&a,&b);print_in
 static unsigned int rand_state=1234567;static void cmd_rand(void){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
 
 static void cmd_dir(void){for(int i=0;i<current_dir->child_count;i++){print(current_dir->children[i].name);if(current_dir->children[i].is_dir)print("/");print("  ");}put_char('\n');}
-static void cmd_cd(const char*args){if(streq(args,"/")||args[0]==0){current_dir=fs_get_root();current_path[0]='/';current_path[1]='\0';return;}if(streq(args,"..")){if(current_dir->parent){current_dir=current_dir->parent;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';const char*n=current_dir->name;int i=0;while(n[i]){current_path[i+1]=n[i];i++;}current_path[i+1]='\0';}}return;}fs_entry*d=fs_find_subdir(current_dir,args);if(d){current_dir=d;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';int i=0;while(args[i]){current_path[i+1]=args[i];i++;}current_path[i+1]='\0';}}else{print("No such directory\n");}}
+static void cmd_cd(const char*args){
+    fs_entry* target = fs_resolve(current_dir, args);
+    if(target && target->is_dir){
+        current_dir = target;
+        fs_get_path(current_dir, current_path, sizeof(current_path));
+    } else {
+        print("No such directory\n");
+    }
+}
 static void cmd_pwd(void){print(current_path);put_char('\n');}
-static void cmd_cat(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}else print("File not found\n");}
+static void cmd_cat(const char*name){fs_entry*f=fs_resolve(current_dir,name);if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}else print("File not found\n");}
 static void cmd_touch(const char*name){if(fs_find_entry(current_dir,name)){print("Exists\n");return;}if(fs_create_file(current_dir,name))print("Created\n");else print("Fail\n");}
 static void cmd_rm(const char*name){if(fs_delete_entry(current_dir,name))print("Removed\n");else print("Not found\n");}
 static void cmd_mkdir(const char*name){if(fs_create_dir(current_dir,name))print("Dir created\n");else print("Fail\n");}
@@ -125,7 +133,7 @@ static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
 static void cmd_shutdown(void){print("Shutdown\n");while(1){__asm__("hlt");}}
 static void cmd_ver(void){print("OptrixOS 0.1 text\n");}
 static void cmd_whoami(void){print("root\n");}
-static void cmd_banner(void){fs_entry*f=fs_find_entry(fs_get_root(),"logo.txt");if(f){print(fs_read_file(f));put_char('\n');}}
+static void cmd_banner(void){fs_entry*f=fs_resolve(fs_get_root(),"logo.txt");if(f){print(fs_read_file(f));put_char('\n');}}
 
 static void execute(const char*line){
     if(streq(line,"help")) cmd_help();
@@ -158,7 +166,8 @@ void terminal_init(void){
     screen_clear();
     fs_init();
     current_dir=fs_get_root();
-    fs_entry* logo = fs_find_entry(current_dir, "logo.txt");
+    fs_get_path(current_dir, current_path, sizeof(current_path));
+    fs_entry* logo = fs_resolve(current_dir, "logo.txt");
     if(logo) {
         print(fs_read_file(logo));
         put_char('\n');
