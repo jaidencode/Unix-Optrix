@@ -149,3 +149,75 @@ const char* fs_read_file(fs_entry* file) {
     if(!file || file->is_dir) return "";
     return file->content;
 }
+
+fs_entry* fs_resolve(fs_entry* start, const char* path) {
+    if(!start) start = &root_dir;
+    if(!path || !*path) return start;
+    fs_entry* cur = start;
+    int i = 0;
+    char seg[32];
+    int seglen = 0;
+    if(path[0] == '/') {
+        cur = &root_dir;
+        i = 1;
+    }
+    while(1) {
+        char c = path[i];
+        if(c == '/' || c == '\0') {
+            seg[seglen] = '\0';
+            if(seglen > 0) {
+                if(streq(seg, ".")) {
+                    /* noop */
+                } else if(streq(seg, "..")) {
+                    if(cur->parent) cur = cur->parent;
+                } else {
+                    fs_entry* next = fs_find_entry(cur, seg);
+                    if(!next) return NULL;
+                    cur = next;
+                }
+            }
+            seglen = 0;
+            if(c == '\0') break;
+            i++;
+        } else {
+            if(seglen < 31) {
+                seg[seglen++] = c;
+            }
+            i++;
+        }
+    }
+    return cur;
+}
+
+void fs_get_path(fs_entry* entry, char* out, int max_len) {
+    if(max_len <= 0) return;
+    if(entry == &root_dir) {
+        if(max_len >= 2) {
+            out[0] = '/';
+            out[1] = '\0';
+        } else if(max_len >= 1) {
+            out[0] = '\0';
+        }
+        return;
+    }
+    fs_entry* stack[16];
+    int depth = 0;
+    fs_entry* cur = entry;
+    while(cur && cur != &root_dir && depth < 16) {
+        stack[depth++] = cur;
+        cur = cur->parent;
+    }
+    int idx = 0;
+    out[idx++] = '/';
+    for(int d = depth - 1; d >= 0 && idx < max_len - 1; d--) {
+        const char* n = stack[d]->name;
+        int j = 0;
+        while(n[j] && idx < max_len - 1) {
+            out[idx++] = n[j++];
+        }
+        if(d > 0 && idx < max_len - 1) {
+            out[idx++] = '/';
+        }
+    }
+    out[idx] = '\0';
+}

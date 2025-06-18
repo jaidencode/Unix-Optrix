@@ -77,8 +77,10 @@ def assemble(src, out, fmt="bin", defines=None):
     run(cmd)
     tmp_files.append(out)
 
+EXTRA_CFLAGS = os.environ.get("EXTRA_CFLAGS", "").split()
+
 def compile_c(src, out):
-    run([
+    cmd = [
         CC,
         "-ffreestanding",
         "-fno-pie",
@@ -88,7 +90,8 @@ def compile_c(src, out):
         "-o", out,
         "-Iinclude",
         "-IOptrixOS-Kernel/include"
-    ])
+    ] + EXTRA_CFLAGS
+    run(cmd)
     tmp_files.append(out)
 
 def roundup(x, align):
