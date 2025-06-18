@@ -33,6 +33,7 @@ static void put_char(char c) {
         if(col>=SCREEN_COLS) { col=0; row++; }
     }
     if(row>=SCREEN_ROWS) { scroll(); row=SCREEN_ROWS-1; }
+    screen_move_cursor(col, row);
 }
 
 static void print(const char *s) { while(*s) put_char(*s++); }
@@ -156,6 +157,7 @@ static void execute(const char*line){
 
 void terminal_init(void){
     screen_clear();
+    screen_move_cursor(0,0);
     fs_init();
     current_dir=fs_get_root();
     fs_entry* logo = fs_find_entry(current_dir, "logo.txt");

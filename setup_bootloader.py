@@ -146,6 +146,7 @@ def generate_resource_files():
             with open(path, "r", errors="ignore") as fh:
                 data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
             entries.append((rel, data))
+    entries.sort(key=lambda e: e[0])
     with open(GENERATED_H, "w") as h:
         h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
         h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
@@ -261,14 +262,13 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         sys.exit(1)
     if os.path.exists(iso_out):
         os.remove(iso_out)
-    cmd = [
-        MKISOFS_EXE,
-        "-quiet",
-        "-o", iso_out,
-        "-b", "disk.img",
-        "-R", "-J", "-l",
-        tmp_iso_dir
-    ]
+    disk_path = os.path.join(tmp_iso_dir, "disk.img")
+    disk_size = os.path.getsize(disk_path) if os.path.exists(disk_path) else 0
+    cmd = [MKISOFS_EXE, "-quiet", "-o", iso_out]
+    if disk_size > 1474560:
+        sectors = (disk_size + 511) // 512
+        cmd += ["-no-emul-boot", "-boot-load-size", str(sectors), "-boot-info-table"]
+    cmd += ["-b", "disk.img", "-R", "-J", "-l", tmp_iso_dir]
     run(cmd)
     # Forcibly copy ISO to script's dir if not already there
     script_dir = os.path.dirname(os.path.abspath(__file__))
