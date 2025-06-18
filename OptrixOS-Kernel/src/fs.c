@@ -1,4 +1,5 @@
 #include "fs.h"
+#include "resources.h"
 #include <stddef.h>
 
 static int streq(const char* a, const char* b) {
@@ -66,6 +67,13 @@ void fs_init(void) {
     desktop_ptr->child_count = desktop_count;
 
     root_dir.child_count = root_count;
+
+    /* add compiled-in resource files to root */
+    for(int i=0; i<resource_files_count && root_dir.child_count < MAX_ROOT_ENTRIES; i++) {
+        fs_entry* f = fs_create_file(&root_dir, resource_files[i].name);
+        if(f)
+            fs_write_file(f, resource_files[i].data);
+    }
 }
 
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name) {
