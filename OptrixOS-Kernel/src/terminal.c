@@ -110,7 +110,7 @@ static void cmd_mul(const char*args){int a,b;parse_two_ints(args,&a,&b);print_in
 
 static unsigned int rand_state=1234567;static void cmd_rand(void){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
 
-static void cmd_dir(void){for(int i=0;i<current_dir->child_count;i++){print(current_dir->children[i].name);if(current_dir->children[i].is_dir)print("/");print("  ");}put_char('\n');}
+static void cmd_dir(void){for(int i=0;i<current_dir->child_count;i++){print(current_dir->children[i]->name);if(current_dir->children[i]->is_dir)print("/");print("  ");}put_char('\n');}
 static void cmd_cd(const char*args){if(streq(args,"/")||args[0]==0){current_dir=fs_get_root();current_path[0]='/';current_path[1]='\0';return;}if(streq(args,"..")){if(current_dir->parent){current_dir=current_dir->parent;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';const char*n=current_dir->name;int i=0;while(n[i]){current_path[i+1]=n[i];i++;}current_path[i+1]='\0';}}return;}fs_entry*d=fs_find_subdir(current_dir,args);if(d){current_dir=d;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';int i=0;while(args[i]){current_path[i+1]=args[i];i++;}current_path[i+1]='\0';}}else{print("No such directory\n");}}
 static void cmd_pwd(void){print(current_path);put_char('\n');}
 static void cmd_cat(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}else print("File not found\n");}
@@ -156,7 +156,6 @@ static void execute(const char*line){
 
 void terminal_init(void){
     screen_clear();
-    fs_init();
     current_dir=fs_get_root();
     fs_entry* logo = fs_find_entry(current_dir, "logo.txt");
     if(logo) {

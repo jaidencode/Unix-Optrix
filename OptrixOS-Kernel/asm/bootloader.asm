@@ -4,6 +4,11 @@ ORG 0x7C00
 %ifndef KERNEL_SECTORS
 %define KERNEL_SECTORS 1
 %endif
+%ifndef FS_SECTORS
+%define FS_SECTORS 0
+%endif
+%define FS_LOAD_ADDR 0x80000
+FS_SIZE_BYTES equ FS_SECTORS * 512
 
 start:
     cli
@@ -39,6 +44,15 @@ start:
     mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
     int 0x13
 
+    ; load filesystem image immediately after kernel
+    mov bx, FS_LOAD_ADDR
+    mov dl, [BOOT_DRIVE]
+    mov dh, 0
+    mov ah, 0x02
+    mov al, FS_SECTORS
+    mov cx, 0x0002 + KERNEL_SECTORS
+    int 0x13
+
     ; setup basic GDT for protected mode
     lgdt [gdt_desc]
 
@@ -59,6 +73,8 @@ protected_mode:
     mov ss, ax
     mov esp, 0x90000
 
+    mov esi, [fs_ptr]
+    mov edi, [fs_size]
     call dword 0x1000
 .halt:
     hlt
@@ -77,6 +93,9 @@ gdt_desc:
     dd gdt_start
 
 BOOT_DRIVE: db 0
+
+fs_ptr:  dd FS_LOAD_ADDR
+fs_size: dd FS_SIZE_BYTES
 
 bootmsg: db 'Loading OptrixOS...',0
 

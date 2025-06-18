@@ -21,6 +21,10 @@ script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
 but if it is not installed the script will fall back to the system `gcc` and
 `ld` with `-m32`.
 
+Running the build also creates `fs.img` which stores the initial directory
+structure and file contents. This image is bundled into the disk so the kernel
+loads filesystem data at runtime instead of having it compiled into the code.
+
 
 
 On Ubuntu these tools can be installed with:
