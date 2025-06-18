@@ -2,6 +2,10 @@
 #include "terminal.h"
 #include "driver.h"
 #include "mem.h"
+#include "bootinfo.h"
+
+void* initrd_start = 0;
+unsigned int initrd_size = 0;
 
 /* simple heap placed at 0x200000 for illustration */
 #define HEAP_BASE ((unsigned char*)0x200000)

@@ -1,5 +1,6 @@
 #include "fs.h"
-#include "resources.h"
+#include "bootinfo.h"
+#include <stdint.h>
 #include <stddef.h>
 
 static int streq(const char* a, const char* b) {
@@ -38,7 +39,7 @@ fs_entry* fs_get_root(void) {
     return &root_dir;
 }
 
-void fs_init(void) {
+void fs_init(const void* initrd_start, unsigned int initrd_size) {
     root_count = 0;
     bin_count = 0;
     docs_count = 0;
@@ -68,11 +69,28 @@ void fs_init(void) {
 
     root_dir.child_count = root_count;
 
-    /* add compiled-in resource files to root */
-    for(int i=0; i<resource_files_count && root_dir.child_count < MAX_ROOT_ENTRIES; i++) {
-        fs_entry* f = fs_create_file(&root_dir, resource_files[i].name);
-        if(f)
-            fs_write_file(f, resource_files[i].data);
+    /* load files from initrd */
+    if(initrd_start && initrd_size >= 4) {
+        const uint8_t* ptr = (const uint8_t*)initrd_start;
+        uint32_t count = *(const uint32_t*)ptr; ptr += 4;
+        for(uint32_t i=0; i<count && root_dir.child_count < MAX_ROOT_ENTRIES; i++) {
+            if(ptr + 36 > (const uint8_t*)initrd_start + initrd_size) break;
+            char namebuf[33];
+            for(int j=0;j<32;j++) namebuf[j]=ptr[j];
+            namebuf[32]='\0';
+            ptr += 32;
+            uint32_t sz = *(const uint32_t*)ptr; ptr += 4;
+            if(ptr + sz > (const uint8_t*)initrd_start + initrd_size) break;
+            fs_entry* f = fs_create_file(&root_dir, namebuf);
+            if(f) {
+                char text[256];
+                uint32_t cpy = sz < 255 ? sz : 255;
+                for(uint32_t k=0;k<cpy;k++) text[k] = ((const char*)ptr)[k];
+                text[cpy]='\0';
+                fs_write_file(f, text);
+            }
+            ptr += sz;
+        }
     }
 }
 
