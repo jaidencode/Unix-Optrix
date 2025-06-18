@@ -220,6 +220,11 @@ def build_kernel(asm_files, c_files, out_bin):
 
     kernel_bytes = os.path.getsize(out_bin)
     sectors = roundup(kernel_bytes, 512) // 512
+    if sectors > 127:
+        print(f"Error: Kernel size {kernel_bytes} bytes (" \
+              f"{sectors} sectors) exceeds BIOS limit of 127 sectors.")
+        print("Reduce resources or update the bootloader to load in chunks.")
+        sys.exit(1)
 
     boot_bin = "bootloader.bin"
     assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
