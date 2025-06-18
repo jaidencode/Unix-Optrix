@@ -48,13 +48,11 @@ qemu-system-x86_64 -hda disk.img
 
 ## Built-in terminal
 
-After boot a login prompt asks for the admin password (`admin1`). Once logged
-in a simple text terminal is available. The screen now runs in a
-high‑resolution 800x600 graphics mode with characters rendered at a 21‑pixel
-size. A title bar with a box-drawing border is drawn using VGA graphics
-characters. The background is white with black text while the cursor is
-rendered in bright yellow. The hardware text mode cursor is disabled so only the
-custom cursor is visible. The terminal automatically scrolls as it fills.
+After boot the system now launches directly into a full screen terminal without
+showing the previous desktop UI or login prompt. The screen still runs in the
+800x600 graphics mode with characters rendered at a 21‑pixel size. The custom
+cursor and box-drawing title bar remain and the terminal automatically scrolls
+as it fills.
 The following commands are implemented:
 
 * `help`    - display available commands
@@ -64,6 +62,7 @@ The following commands are implemented:
 * `ping`    - check connectivity
 * `reverse` - reverse a string
 * `add`     - add two numbers
+* `mul`     - multiply two numbers
 * `color`   - set the text colour
 * `border`  - redraw the terminal border
 * `dir`     - list directory contents
@@ -82,6 +81,7 @@ The following commands are implemented:
 * `rmdir`   - remove an empty directory
   (directory capacity has been increased to support more entries)
 * `cp`      - copy a file
+* `rand`    - generate a random number
 * `ls`      - alias of `dir`
 * `shutdown`- halt the system
 
