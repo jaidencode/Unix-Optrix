@@ -1,9 +1,7 @@
 #ifndef TERMINAL_H
 #define TERMINAL_H
-#include "window.h"
+
 void terminal_init(void);
-void terminal_run(window_t *win);
-void terminal_set_window(window_t *win);
-/* Redraw the entire terminal buffer. */
-void terminal_recursive_update(void);
+void terminal_run(void);
+
 #endif

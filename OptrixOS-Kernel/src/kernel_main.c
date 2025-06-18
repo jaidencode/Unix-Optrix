@@ -1,6 +1,5 @@
 #include "screen.h"
 #include "terminal.h"
-#include "window.h"
 #include "driver.h"
 #include "mem.h"
 
@@ -13,10 +12,6 @@ void kernel_main(void) {
     mem_init(HEAP_BASE, HEAP_SIZE);
     driver_init_all();
 
-    static window_t term_win;
-    window_init(&term_win, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT,
-                "Terminal", 0x07, 0x00);
-    terminal_set_window(&term_win);
     terminal_init();
-    terminal_run(&term_win);
+    terminal_run();
 }
