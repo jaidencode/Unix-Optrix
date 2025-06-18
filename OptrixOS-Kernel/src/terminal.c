@@ -92,6 +92,7 @@ static void cmd_banner(void);
 static unsigned int uptime = 0;
 static fs_entry* current_dir;
 static char current_path[32] = "/";
+static void update_current_path(void){fs_get_path(current_dir,current_path,sizeof(current_path));}
 
 static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b) return 0;a++;b++;}return *a==*b;}
 static int strprefix(const char*s,const char*p){while(*p){if(*s!=*p) return 0;s++;p++;}return 1;}
@@ -111,15 +112,95 @@ static void cmd_mul(const char*args){int a,b;parse_two_ints(args,&a,&b);print_in
 static unsigned int rand_state=1234567;static void cmd_rand(void){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
 
 static void cmd_dir(void){for(int i=0;i<current_dir->child_count;i++){print(current_dir->children[i].name);if(current_dir->children[i].is_dir)print("/");print("  ");}put_char('\n');}
-static void cmd_cd(const char*args){if(streq(args,"/")||args[0]==0){current_dir=fs_get_root();current_path[0]='/';current_path[1]='\0';return;}if(streq(args,"..")){if(current_dir->parent){current_dir=current_dir->parent;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';const char*n=current_dir->name;int i=0;while(n[i]){current_path[i+1]=n[i];i++;}current_path[i+1]='\0';}}return;}fs_entry*d=fs_find_subdir(current_dir,args);if(d){current_dir=d;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';int i=0;while(args[i]){current_path[i+1]=args[i];i++;}current_path[i+1]='\0';}}else{print("No such directory\n");}}
+static void cmd_cd(const char*args){
+    while(*args==' ') args++;
+    if(args[0]==0) { current_dir=fs_get_root(); update_current_path(); return; }
+    fs_entry* target = fs_resolve_path(current_dir, args);
+    if(target && target->is_dir){
+        current_dir = target;
+        update_current_path();
+    } else {
+        print("No such directory\n");
+    }
+}
 static void cmd_pwd(void){print(current_path);put_char('\n');}
-static void cmd_cat(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}else print("File not found\n");}
-static void cmd_touch(const char*name){if(fs_find_entry(current_dir,name)){print("Exists\n");return;}if(fs_create_file(current_dir,name))print("Created\n");else print("Fail\n");}
-static void cmd_rm(const char*name){if(fs_delete_entry(current_dir,name))print("Removed\n");else print("Not found\n");}
-static void cmd_mkdir(const char*name){if(fs_create_dir(current_dir,name))print("Dir created\n");else print("Fail\n");}
-static void cmd_rmdir(const char*name){fs_entry*d=fs_find_entry(current_dir,name);if(d&&d->is_dir&&d->child_count==0){fs_delete_entry(current_dir,name);print("Dir removed\n");}else print("Not empty\n");}
-static void cmd_mv(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_find_entry(current_dir,src);if(f){int k=0;while(dst[k]&&k<31){f->name[k]=dst[k];k++;}f->name[k]=0;print("Renamed\n");}else print("No file\n");}
-static void cmd_cp(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_find_entry(current_dir,src);if(!f||f->is_dir){print("No file\n");return;}fs_entry*d=fs_find_entry(current_dir,dst);if(!d)d=fs_create_file(current_dir,dst);if(d&&!d->is_dir){fs_write_file(d,fs_read_file(f));print("Copied\n");}else print("Fail\n");}
+static void cmd_cat(const char*name){
+    while(*name==' ') name++;
+    fs_entry*f=fs_resolve_path(current_dir,name);
+    if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}
+    else print("File not found\n");
+}
+static fs_entry* path_parent(const char*path,char*name_out){
+    fs_entry* dir=(path[0]=='/')?fs_get_root():current_dir;
+    const char*last=path;const char*p=path;
+    while(*p){if(*p=='/')last=p+1;p++;}
+    int len=0;while(last[len]&&len<31){name_out[len]=last[len];len++;}
+    name_out[len]='\0';
+    if(last==path){return (path[0]=='/')?fs_get_root():current_dir;}
+    int plen=last-path;char tmp[64];if(plen>=64)plen=63;for(int i=0;i<plen;i++)tmp[i]=path[i];tmp[plen]='\0';
+    if(plen==0)return fs_get_root();
+    return fs_resolve_path(dir,tmp);
+}
+static void cmd_touch(const char*name){
+    while(*name==' ')name++;
+    char fname[32];
+    fs_entry*dir=path_parent(name,fname);
+    if(!dir){print("Invalid path\n");return;}
+    if(fs_find_entry(dir,fname)){print("Exists\n");return;}
+    if(fs_create_file(dir,fname))print("Created\n");else print("Fail\n");
+}
+static void cmd_rm(const char*name){
+    while(*name==' ')name++;
+    fs_entry*f=fs_resolve_path(current_dir,name);
+    if(f&&f->parent&&fs_delete_entry(f->parent,f->name))print("Removed\n");else print("Not found\n");
+}
+static void cmd_mkdir(const char*name){
+    while(*name==' ')name++;
+    char dname[32];
+    fs_entry*dir=path_parent(name,dname);
+    if(!dir){print("Invalid path\n");return;}
+    if(fs_create_dir(dir,dname))print("Dir created\n");else print("Fail\n");
+}
+static void cmd_rmdir(const char*name){
+    while(*name==' ')name++;
+    fs_entry*dir=fs_resolve_path(current_dir,name);
+    if(dir&&dir->is_dir&&dir->child_count==0&&dir->parent){
+        fs_delete_entry(dir->parent,dir->name);print("Dir removed\n");
+    }else print("Not empty\n");
+}
+static void cmd_mv(const char*args){
+    char src[64];char dst[64];int i=0;
+    while(args[i]&&args[i]!=' '&&i<63){src[i]=args[i];i++;}src[i]='\0';
+    if(args[i]==0){print("Usage\n");return;}i++;
+    int j=0;while(args[i]&&j<63){dst[j++]=args[i++];}dst[j]='\0';
+    fs_entry*f=fs_resolve_path(current_dir,src);
+    if(!f){print("No file\n");return;}
+    char newname[32];fs_entry*newdir=path_parent(dst,newname);
+    if(!newdir){print("Invalid path\n");return;}
+    if(f->parent!=newdir){
+        if(newdir->child_count>=20){print("Fail\n");return;}
+        fs_entry*copy=fs_create_file(newdir,newname);
+        if(!copy){print("Fail\n");return;}
+        copy->is_dir=f->is_dir;copy->child_count=f->child_count;copy->children=f->children;copy->parent=newdir;fs_write_file(copy,f->content);
+        fs_delete_entry(f->parent,f->name);
+    }else{
+        int k=0;while(newname[k]&&k<31){f->name[k]=newname[k];k++;}f->name[k]='\0';
+    }
+    print("Renamed\n");
+}
+static void cmd_cp(const char*args){
+    char src[64];char dst[64];int i=0;
+    while(args[i]&&args[i]!=' '&&i<63){src[i]=args[i];i++;}src[i]='\0';
+    if(args[i]==0){print("Usage\n");return;}i++;
+    int j=0;while(args[i]&&j<63){dst[j++]=args[i++];}dst[j]='\0';
+    fs_entry*f=fs_resolve_path(current_dir,src);
+    if(!f||f->is_dir){print("No file\n");return;}
+    char newname[32];fs_entry*dir=path_parent(dst,newname);
+    if(!dir){print("Invalid path\n");return;}
+    fs_entry*d=fs_find_entry(dir,newname);
+    if(!d)d=fs_create_file(dir,newname);
+    if(d&&!d->is_dir){fs_write_file(d,fs_read_file(f));print("Copied\n");}else print("Fail\n");
+}
 static void cmd_date(void){print("Build: " __DATE__ " " __TIME__ "\n");}
 static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
 static void cmd_shutdown(void){print("Shutdown\n");while(1){__asm__("hlt");}}
@@ -158,6 +239,7 @@ void terminal_init(void){
     screen_clear();
     fs_init();
     current_dir=fs_get_root();
+    update_current_path();
     fs_entry* logo = fs_find_entry(current_dir, "logo.txt");
     if(logo) {
         print(fs_read_file(logo));
