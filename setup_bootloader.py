@@ -3,6 +3,7 @@ import sys
 import os
 import shutil
 import stat
+import argparse
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -38,6 +39,11 @@ KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Build OptrixOS")
+    parser.add_argument("--iso", default="OptrixOS.iso", help="Output ISO path")
+    return parser.parse_args()
 
 tmp_files = []
 
@@ -293,6 +299,9 @@ def cleanup():
         shutil.rmtree(OBJ_DIR, onerror=on_rm_error)
 
 def main():
+    args = parse_args()
+    global OUTPUT_ISO
+    OUTPUT_ISO = os.path.abspath(args.iso)
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds

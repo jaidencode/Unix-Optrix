@@ -125,7 +125,16 @@ static void cmd_mul(const char*args){int a,b;parse_two_ints(args,&a,&b);print_in
 
 static unsigned int rand_state=1234567;static void cmd_rand(void){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
 
-static void cmd_dir(void){for(int i=0;i<current_dir->child_count;i++){print(current_dir->children[i].name);if(current_dir->children[i].is_dir)print("/");print("  ");}put_char('\n');}
+static void cmd_dir(void){
+    fs_entry* e = current_dir->children;
+    while(e){
+        print(e->name);
+        if(e->is_dir) print("/");
+        print("  ");
+        e = e->next;
+    }
+    put_char('\n');
+}
 static void cmd_cd(const char*args){
     fs_entry*d=fs_resolve_path(current_dir,args);
     if(d&&d->is_dir){current_dir=d;rebuild_path();}
@@ -139,7 +148,15 @@ static void cmd_rm(const char*name){fs_entry*f=fs_resolve_path(current_dir,name)
 static void cmd_mkdir(const char*name){
     fs_entry*dir=current_dir;char dname[32];int i=0;int p=0;while(name[p]){if(name[p]=='/'){dname[i]=0;dir=fs_resolve_path(dir,dname);if(!dir||!dir->is_dir){print("Path error\n");return;}i=0;p++;continue;}if(i<31)dname[i++]=name[p++];}
     dname[i]=0; if(fs_create_dir(dir,dname))print("Dir created\n");else print("Fail\n");}
-static void cmd_rmdir(const char*name){fs_entry*d=fs_resolve_path(current_dir,name);if(d&&d->is_dir&&d->child_count==0){fs_delete_entry(d->parent,d->name);print("Dir removed\n");}else print("Not empty\n");}
+static void cmd_rmdir(const char*name){
+    fs_entry*d=fs_resolve_path(current_dir,name);
+    if(d&&d->is_dir&&fs_is_empty(d)){
+        fs_delete_entry(d->parent,d->name);
+        print("Dir removed\n");
+    }else{
+        print("Not empty\n");
+    }
+}
 static void cmd_mv(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_resolve_path(current_dir,src);if(f){int k=0;while(dst[k]&&k<31){f->name[k]=dst[k];k++;}f->name[k]=0;print("Renamed\n");}else print("No file\n");}
 static void cmd_cp(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_resolve_path(current_dir,src);if(!f||f->is_dir){print("No file\n");return;}fs_entry*d=fs_resolve_path(current_dir,dst);if(!d)d=fs_create_file(current_dir,dst);if(d&&!d->is_dir){fs_write_file(d,fs_read_file(f));print("Copied\n");}else print("Fail\n");}
 static void cmd_date(void){print("Build: " __DATE__ " " __TIME__ "\n");}
