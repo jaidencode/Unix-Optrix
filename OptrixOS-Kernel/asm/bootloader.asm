@@ -5,6 +5,15 @@ ORG 0x7C00
 %define KERNEL_SECTORS 1
 %endif
 
+%ifndef INITRD_SECTORS
+%define INITRD_SECTORS 0
+%endif
+
+%ifndef INITRD_ADDR
+%define INITRD_ADDR 0x90000
+%endif
+%assign INITRD_SEG INITRD_ADDR >> 4
+
 start:
     cli
     xor ax, ax
@@ -30,13 +39,24 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
+    ; load kernel using BIOS extended read
+    mov word [dap_kernel_count], KERNEL_SECTORS
+    mov dword [dap_kernel_lba], 1
+    mov word [dap_kernel_off], 0x1000
+    mov word [dap_kernel_seg], 0x0000
+    mov si, dap_kernel
     mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    mov ah, 0x42
+    int 0x13
+
+    ; load initrd right after kernel
+    mov word [dap_initrd_count], INITRD_SECTORS
+    mov dword [dap_initrd_lba], 1 + KERNEL_SECTORS
+    mov word [dap_initrd_off], 0x0000
+    mov word [dap_initrd_seg], INITRD_SEG
+    mov si, dap_initrd
+    mov dl, [BOOT_DRIVE]
+    mov ah, 0x42
     int 0x13
 
     ; setup basic GDT for protected mode
@@ -59,6 +79,10 @@ protected_mode:
     mov ss, ax
     mov esp, 0x90000
 
+    mov ebx, INITRD_ADDR
+    mov ecx, INITRD_SECTORS
+    shl ecx, 9
+
     call dword 0x1000
 .halt:
     hlt
@@ -79,6 +103,22 @@ gdt_desc:
 BOOT_DRIVE: db 0
 
 bootmsg: db 'Loading OptrixOS...',0
+
+; Disk address packets
+align 4
+dap_kernel:
+    db 0x10,0          ; size, reserved
+dap_kernel_count: dw 0
+dap_kernel_off:   dw 0
+dap_kernel_seg:   dw 0
+dap_kernel_lba:   dq 0
+
+dap_initrd:
+    db 0x10,0
+dap_initrd_count: dw 0
+dap_initrd_off:   dw 0
+dap_initrd_seg:   dw 0
+dap_initrd_lba:   dq 0
 
     ; boot signature
     times 510-($-$$) db 0

@@ -14,6 +14,9 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Sets the classic 80x25 text mode and jumps directly to the kernel.
 
 The kernel runs entirely in text mode and provides a small shell interface.
+Files are now loaded from a tiny initrd image rather than being compiled into
+the kernel. The build script packages everything inside `OptrixOS-Kernel/resources`
+into `initrd.img` which is loaded by the bootloader before jumping to the kernel.
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
 script builds a small custom kernel located in `OptrixOS-Kernel/` and produces

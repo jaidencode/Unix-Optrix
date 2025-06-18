@@ -1,5 +1,4 @@
 #include "fs.h"
-#include "resources.h"
 #include <stddef.h>
 
 static int streq(const char* a, const char* b) {
@@ -34,8 +33,51 @@ static fs_entry root_dir = {"/", 1, NULL, root_entries, 0, ""};
 static fs_entry extra_dir_entries[MAX_EXTRA_DIRS][MAX_EXTRA_DIR_ENTRIES];
 static int extra_dir_used = 0;
 
+static const char* next_segment(const char* path, char* seg, int max);
+
 fs_entry* fs_get_root(void) {
     return &root_dir;
+}
+
+static void ensure_path(const char* path, fs_entry** parent, char* name_out) {
+    fs_entry* dir = &root_dir;
+    const char* p = path;
+    char seg[32];
+    while(*p) {
+        p = next_segment(p, seg, sizeof(seg));
+        if(*p) {
+            fs_entry* d = fs_find_entry(dir, seg);
+            if(!d) d = fs_create_dir(dir, seg);
+            dir = d;
+        } else {
+            int i=0; while(seg[i] && i<31) { name_out[i]=seg[i]; i++; } name_out[i]='\0';
+            *parent = dir;
+        }
+    }
+}
+
+void fs_load_initrd(const unsigned char* data, unsigned int size) {
+    if(!data) return;
+    unsigned int count = *(const unsigned int*)data; data += 4;
+    const unsigned char* end = (const unsigned char*)data + size;
+    for(unsigned int i=0;i<count && data < end;i++) {
+        unsigned char nlen = *data++; if(data >= end) break;
+        char name[64];
+        for(int j=0;j<nlen && j<63 && data<end;j++) name[j]=*data++;
+        name[nlen<63?nlen:63]='\0';
+        if(data + 4 > end) break;
+        unsigned int fsize = *(const unsigned int*)data; data += 4;
+        const char* filedata = (const char*)data;
+        data += fsize;
+        fs_entry* dir=&root_dir; char fname[32];
+        ensure_path(name,&dir,fname);
+        fs_entry* f = fs_find_entry(dir,fname);
+        if(!f) f = fs_create_file(dir,fname);
+        if(f) {
+            char buf[256]; int k=0; while(k<fsize && k<255) { buf[k]=filedata[k]; k++; } buf[k]='\0';
+            fs_write_file(f, buf);
+        }
+    }
 }
 
 void fs_init(void) {
@@ -67,13 +109,6 @@ void fs_init(void) {
     desktop_ptr->child_count = desktop_count;
 
     root_dir.child_count = root_count;
-
-    /* add compiled-in resource files to root */
-    for(int i=0; i<resource_files_count && root_dir.child_count < MAX_ROOT_ENTRIES; i++) {
-        fs_entry* f = fs_create_file(&root_dir, resource_files[i].name);
-        if(f)
-            fs_write_file(f, resource_files[i].data);
-    }
 }
 
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name) {

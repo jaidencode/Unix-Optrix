@@ -4,6 +4,7 @@ import os
 import shutil
 import stat
 import argparse
+import struct
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -95,14 +96,15 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
+def make_dynamic_img(boot_bin, kernel_bin, initrd_bin, img_out):
     print("Creating dynamically-sized disk image...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
+    initrd = open(initrd_bin, "rb").read() if initrd_bin else b""
+    total = 512 + len(kern) + len(initrd)
     min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
     if img_size < min_size:
@@ -113,8 +115,10 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
+        if initrd:
+            img.write(initrd)
         img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+    print(f"Disk image ({img_size // 1024} KB) created (kernel+initrd+boot: {total} bytes).")
     tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
@@ -132,56 +136,30 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
-# === BINARY RESOURCE EMBEDDING LOGIC ===
-# No binary resources for the text mode build
+# === INITRD CREATION LOGIC ===
 RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
-GENERATED_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "resources.c")
-GENERATED_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "resources.h")
-resource_bin_files = []
+INITRD_IMG = "initrd.img"
 
-def generate_resource_files():
+def create_initrd():
     if not os.path.isdir(RESOURCE_DIR):
-        return
+        return None
     entries = []
     for root, _, files in os.walk(RESOURCE_DIR):
         for f in files:
             path = os.path.join(root, f)
             rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-            with open(path, "r", errors="ignore") as fh:
-                data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-            entries.append((rel, data))
-    with open(GENERATED_H, "w") as h:
-        h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
-        h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
-        h.write("extern const int resource_files_count;\n")
-        h.write("extern const resource_file resource_files[];\n")
-        h.write("#endif\n")
-    with open(GENERATED_C, "w") as c:
-        c.write('#include "resources.h"\n')
-        c.write("const resource_file resource_files[] = {\n")
+            with open(path, "rb") as fh:
+                data = fh.read()
+            entries.append((rel.encode('utf-8'), data))
+    with open(INITRD_IMG, "wb") as out:
+        out.write(struct.pack("<I", len(entries)))
         for name, data in entries:
-            c.write(f'    {{"{name}", "{data}"}},\n')
-        c.write("};\n")
-        c.write(f"const int resource_files_count = {len(entries)};\n")
-    return GENERATED_C
-
-def objcopy_binary(input_path, output_obj):
-    if not os.path.exists(input_path):
-        print(f"ERROR: Resource not found: {input_path}")
-        sys.exit(1)
-    # Only rebuild if changed
-    if not os.path.exists(output_obj) or os.path.getmtime(output_obj) < os.path.getmtime(input_path):
-        print(f"Embedding resource: {input_path} -> {output_obj}")
-        result = subprocess.run([
-            "objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386",
-            input_path, output_obj
-        ], capture_output=True, text=True)
-        if result.returncode != 0:
-            print("objcopy failed:", result.stdout, result.stderr)
-            sys.exit(1)
-        tmp_files.append(output_obj)
-    else:
-        print(f"Resource already up to date: {output_obj}")
+            out.write(struct.pack("B", len(name)))
+            out.write(name)
+            out.write(struct.pack("<I", len(data)))
+            out.write(data)
+    tmp_files.append(INITRD_IMG)
+    return INITRD_IMG
 
 
 def build_kernel(asm_files, c_files, out_bin):
@@ -222,12 +200,9 @@ def build_kernel(asm_files, c_files, out_bin):
     tmp_files.append(out_bin)
 
     kernel_bytes = os.path.getsize(out_bin)
-    sectors = roundup(kernel_bytes, 512) // 512
+    kernel_sectors = roundup(kernel_bytes, 512) // 512
 
-    boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
-
-    return boot_bin, out_bin
+    return bootloader_src, out_bin, kernel_sectors
 
 def on_rm_error(func, path, exc_info):
     # Make file writable and retry (Windows-safe)
@@ -301,13 +276,17 @@ def main(skip_iso=False):
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
-    res_c = generate_resource_files()
-    if res_c and res_c not in c_files:
-        c_files.append(res_c)
+    initrd_img = create_initrd()
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    bootloader_src, kernel_bin, kernel_sectors = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
+    initrd_sectors = 0
+    if initrd_img:
+        initrd_bytes = os.path.getsize(initrd_img)
+        initrd_sectors = roundup(initrd_bytes, 512) // 512
+    boot_bin = "bootloader.bin"
+    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": kernel_sectors, "INITRD_SECTORS": initrd_sectors, "INITRD_ADDR": 0x90000})
+    make_dynamic_img(boot_bin, kernel_bin, initrd_img, DISK_IMG)
     if not skip_iso:
         copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
         make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)

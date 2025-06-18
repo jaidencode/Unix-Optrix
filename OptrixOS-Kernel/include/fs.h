@@ -32,4 +32,6 @@ fs_entry* fs_resolve_path(fs_entry* start, const char* path);
 /* Construct the full path for an entry. */
 void fs_get_path(fs_entry* entry, char* out, int max);
 
+void fs_load_initrd(const unsigned char* data, unsigned int size);
+
 #endif
