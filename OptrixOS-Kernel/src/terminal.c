@@ -240,6 +240,7 @@ static void cmd_help(void) {
     print("ping  - check connectivity\n");
     print("reverse <text> - reverse a string\n");
     print("add <a> <b>   - add two numbers\n");
+    print("mul <a> <b>   - multiply two numbers\n");
     print("color <hex>  - set text color\n");
     print("border      - redraw border\n");
     print("dir         - list directory contents\n");
@@ -257,6 +258,7 @@ static void cmd_help(void) {
     print("hello      - greet the user\n");
     print("uptime     - show uptime counter\n");
     print("meminfo    - show memory usage\n");
+    print("rand       - random number\n");
 }
 
 static void cmd_clear(void) {
@@ -307,6 +309,38 @@ static void cmd_add(const char* args) {
     }
     if(neg) b = -b;
     print_int(a + b);
+    putchar('\n');
+}
+
+static void cmd_mul(const char* args) {
+    int a = 0, b = 0;
+    int idx = 0;
+    int neg = 0;
+    while(args[idx] == ' ') idx++;
+    if(args[idx] == '-') { neg = 1; idx++; }
+    while(args[idx] >= '0' && args[idx] <= '9') {
+        a = a*10 + (args[idx]-'0');
+        idx++;
+    }
+    if(neg) a = -a;
+    while(args[idx] == ' ') idx++;
+    neg = 0;
+    if(args[idx] == '-') { neg = 1; idx++; }
+    while(args[idx] >= '0' && args[idx] <= '9') {
+        b = b*10 + (args[idx]-'0');
+        idx++;
+    }
+    if(neg) b = -b;
+    print_int(a * b);
+    putchar('\n');
+}
+
+static unsigned int rand_state = 1234567;
+static void cmd_rand(void) {
+    rand_state ^= rand_state << 13;
+    rand_state ^= rand_state >> 17;
+    rand_state ^= rand_state << 5;
+    print_int((int)(rand_state & 0x7fffffff));
     putchar('\n');
 }
 
@@ -552,6 +586,8 @@ static void execute(const char* line) {
         cmd_reverse(line+8);
     } else if(strprefix(line, "add ")) {
         cmd_add(line+4);
+    } else if(strprefix(line, "mul ")) {
+        cmd_mul(line+4);
     } else if(strprefix(line, "color ")) {
         cmd_color(line+6);
     } else if(streq(line, "border")) {
@@ -590,6 +626,8 @@ static void execute(const char* line) {
         cmd_uptime();
     } else if(streq(line, "meminfo")) {
         cmd_meminfo();
+    } else if(streq(line, "rand")) {
+        cmd_rand();
     } else if(streq(line, "ls")) {
         cmd_dir();
     } else if(line[0]) {
