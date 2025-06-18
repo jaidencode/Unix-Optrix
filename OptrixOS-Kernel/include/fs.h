@@ -5,9 +5,10 @@ typedef struct fs_entry {
     char name[32];
     int is_dir;
     struct fs_entry* parent;
-    struct fs_entry* children;
+    struct fs_entry** children;
     int child_count;
-    char content[256];
+    const char* content;
+    int size;
 } fs_entry;
 
 fs_entry* fs_find_entry(fs_entry* dir, const char* name);
@@ -21,7 +22,7 @@ void fs_write_file(fs_entry* file, const char* text);
 /* Read the content of a file entry. Returns empty string for directories */
 const char* fs_read_file(fs_entry* file);
 
-void fs_init(void);
+void fs_init(unsigned int addr, unsigned int size);
 fs_entry* fs_get_root(void);
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name);
 

@@ -3,6 +3,7 @@ import sys
 import os
 import shutil
 import stat
+import struct
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -94,14 +95,15 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
+def make_dynamic_img(boot_bin, kernel_bin, fs_img, img_out):
     print("Creating dynamically-sized disk image...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
+    fsdata = open(fs_img, "rb").read()
+    total = 512 + len(kern) + len(fsdata)
     min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
     if img_size < min_size:
@@ -109,6 +111,7 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
+        img.write(fsdata)
         img.write(b'\0' * (img_size - total))
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
@@ -179,8 +182,52 @@ def objcopy_binary(input_path, output_obj):
     else:
         print(f"Resource already up to date: {output_obj}")
 
+def generate_fs_image():
+    out_img = "fs.img"
+    entries = []
+    data = bytearray()
 
-def build_kernel(asm_files, c_files, out_bin):
+    def add_dir(name, parent):
+        idx = len(entries)
+        entries.append({"is_dir":1, "parent":parent, "name":name})
+        return idx
+
+    def add_file(name, parent, text):
+        idx = len(entries)
+        offset = len(data)
+        b = text.encode()
+        data.extend(b)
+        entries.append({"is_dir":0, "parent":parent, "name":name, "size":len(b), "offset":offset})
+        return idx
+
+    root_idx = add_dir("/", 0)
+    bin_idx = add_dir("bin", root_idx)
+    docs_idx = add_dir("docs", root_idx)
+    desktop_idx = add_dir("desktop", root_idx)
+    add_file("readme.txt", root_idx, "Welcome to OptrixOS")
+    add_file("terminal.opt", desktop_idx, "")
+
+    if os.path.isdir(RESOURCE_DIR):
+        for f in os.listdir(RESOURCE_DIR):
+            path = os.path.join(RESOURCE_DIR, f)
+            with open(path, "r", errors="ignore") as fh:
+                add_file(f, root_idx, fh.read())
+
+    with open(out_img, "wb") as out:
+        out.write(b"OPFS")
+        out.write(struct.pack("<I", len(entries)))
+        for e in entries:
+            name = e["name"].encode()[:31]
+            name += b"\0"*(32-len(name))
+            out.write(struct.pack("<B3sI", e["is_dir"], b"\0\0\0", e["parent"]))
+            out.write(name)
+            out.write(struct.pack("<II", e.get("size",0), e.get("offset",0)))
+        out.write(data)
+    tmp_files.append(out_img)
+    return out_img
+
+
+def build_kernel(asm_files, c_files, out_bin, fs_sectors):
     ensure_obj_dir()
     obj_files = []
     bootloader_src = None
@@ -221,7 +268,7 @@ def build_kernel(asm_files, c_files, out_bin):
     sectors = roundup(kernel_bytes, 512) // 512
 
     boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
+    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors, "FS_SECTORS": fs_sectors})
 
     return boot_bin, out_bin
 
@@ -302,8 +349,10 @@ def main():
         c_files.append(res_c)
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    fs_img = generate_fs_image()
+    fs_sectors = roundup(os.path.getsize(fs_img), 512) // 512
+    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN, fs_sectors=fs_sectors)
+    make_dynamic_img(boot_bin, kernel_bin, fs_img, DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
