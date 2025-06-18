@@ -11,13 +11,9 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Loads the kernel from the disk image into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
-- Uses the VESA linear framebuffer so the full 800x600 screen is accessible.
-- Bootloader prints progress messages while loading the kernel.
-- Displays a simple spinning logo for a few seconds before launching the
-  terminal.
+- Sets the classic 80x25 text mode and jumps directly to the kernel.
 
-Once the kernel takes over it switches to a graphical mode and
-initialises a very small shell interface.
+The kernel runs entirely in text mode and provides a small shell interface.
 
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
 script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
@@ -48,40 +44,29 @@ qemu-system-x86_64 -hda disk.img
 
 ## Built-in terminal
 
-After boot the system now launches directly into a full screen terminal without
-showing the previous desktop UI or login prompt. The screen still runs in the
-800x600 graphics mode with characters rendered at a 21‑pixel size. The custom
-cursor and box-drawing title bar remain and the terminal automatically scrolls
-as it fills.
+After boot the machine displays a plain text console. No graphics or windowing
+code is present and the output matches the standard VGA text mode.
 The following commands are implemented:
 
 * `help`    - display available commands
-* `clear`   - clear the screen
+* `clear`/`cls` - clear the screen
 * `echo`    - echo arbitrary text
 * `about`   - display information about OptrixOS
-* `ping`    - check connectivity
-* `reverse` - reverse a string
 * `add`     - add two numbers
 * `mul`     - multiply two numbers
-* `color`   - set the text colour
-* `border`  - redraw the terminal border
-* `dir`     - list directory contents
+* `dir`/`ls`- list directory contents
 * `cd`      - change directory
 * `pwd`     - show current directory
-* `date`    - show build date
-* `whoami`  - display current user
-* `hello`   - greet the user
+* `date`/`time` - show build date
 * `uptime`  - show uptime counter
 * `cat`     - view a file
 * `touch`   - create a file
-* `write`   - write text to a file
 * `rm`      - delete a file
 * `mv`      - rename a file
 * `mkdir`   - create a directory
 * `rmdir`   - remove an empty directory
-  (directory capacity has been increased to support more entries)
 * `cp`      - copy a file
 * `rand`    - generate a random number
-* `ls`      - alias of `dir`
-* `shutdown`- halt the system
+* `ver`     - show version
+* `shutdown`/`exit` - halt the system
 

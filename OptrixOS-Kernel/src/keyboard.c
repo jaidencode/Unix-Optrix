@@ -60,10 +60,6 @@ void keyboard_update(void) {
             continue;
 
         char c = shift_pressed ? sc_shift[sc] : sc_ascii[sc];
-        if(c == '+' || c == '-') {
-            screen_adjust_font_scale(c == '+' ? 1 : -1);
-            continue;
-        }
         if(c)
             enqueue(c);
     }
