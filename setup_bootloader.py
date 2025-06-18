@@ -113,6 +113,19 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
 
+def combine_kernel_and_fs(kernel_bin, fs_img, out_bin):
+    kern = open(kernel_bin, "rb").read()
+    fsdata = b""
+    if fs_img and os.path.exists(fs_img):
+        fsdata = open(fs_img, "rb").read()
+    combined = kern + fsdata
+    pad = roundup(len(combined), 512) - len(combined)
+    if pad > 0:
+        combined += b"\0" * pad
+    with open(out_bin, "wb") as out:
+        out.write(combined)
+    return len(kern), len(fsdata)
+
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
     skip_dirs = {'.git', '_iso_tmp', '_build_obj', '__pycache__'}
@@ -128,38 +141,41 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
-# === BINARY RESOURCE EMBEDDING LOGIC ===
-# No binary resources for the text mode build
+# === INITRD IMAGE GENERATION ===
 RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
-GENERATED_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "resources.c")
-GENERATED_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "resources.h")
-resource_bin_files = []
+FS_IMG = os.path.join(KERNEL_PROJECT_ROOT, "resources.img")
 
-def generate_resource_files():
+def generate_resource_image():
     if not os.path.isdir(RESOURCE_DIR):
-        return
+        return None
     entries = []
     for root, _, files in os.walk(RESOURCE_DIR):
         for f in files:
             path = os.path.join(root, f)
             rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-            with open(path, "r", errors="ignore") as fh:
-                data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+            with open(path, "rb") as fh:
+                data = fh.read()
             entries.append((rel, data))
-    with open(GENERATED_H, "w") as h:
-        h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
-        h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
-        h.write("extern const int resource_files_count;\n")
-        h.write("extern const resource_file resource_files[];\n")
-        h.write("#endif\n")
-    with open(GENERATED_C, "w") as c:
-        c.write('#include "resources.h"\n')
-        c.write("const resource_file resource_files[] = {\n")
+    import struct
+    with open(FS_IMG, "wb") as out:
+        out.write(struct.pack("<I", len(entries)))
+        offset = 0
+        header_entries = []
         for name, data in entries:
-            c.write(f'    {{"{name}", "{data}"}},\n')
-        c.write("};\n")
-        c.write(f"const int resource_files_count = {len(entries)};\n")
-    return GENERATED_C
+            name_bytes = name.encode("utf-8")[:15]
+            name_bytes += b"\0" * (16 - len(name_bytes))
+            header_entries.append((name_bytes, len(data), offset))
+            offset += len(data)
+        for name_b, size, off in header_entries:
+            out.write(name_b)
+            out.write(struct.pack("<I", size))
+            out.write(struct.pack("<I", off))
+        for _, data in entries:
+            out.write(data)
+        pad = roundup(out.tell(), 512) - out.tell()
+        if pad > 0:
+            out.write(b"\0" * pad)
+    return FS_IMG
 
 def objcopy_binary(input_path, output_obj):
     if not os.path.exists(input_path):
@@ -217,13 +233,7 @@ def build_kernel(asm_files, c_files, out_bin):
     run(link_cmd_bin)
     tmp_files.append(out_bin)
 
-    kernel_bytes = os.path.getsize(out_bin)
-    sectors = roundup(kernel_bytes, 512) // 512
-
-    boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
-
-    return boot_bin, out_bin
+    return bootloader_src, out_bin
 
 def on_rm_error(func, path, exc_info):
     # Make file writable and retry (Windows-safe)
@@ -295,15 +305,24 @@ def cleanup():
 def main():
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
-    # Exclude the old scheduler from builds
-    c_files = [f for f in c_files if not f.endswith('scheduler.c')]
-    res_c = generate_resource_files()
-    if res_c and res_c not in c_files:
-        c_files.append(res_c)
+    c_files = [f for f in c_files if not f.endswith('scheduler.c') and not f.endswith('resources.c')]
+    fs_img = generate_resource_image()
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    boot_src, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
+
+    kernel_size, fs_size = combine_kernel_and_fs(kernel_bin, fs_img, "kernel_with_fs.bin")
+    total_sectors = roundup(kernel_size + fs_size, 512) // 512
+    fs_offset = roundup(kernel_size, 512)
+
+    boot_bin = "bootloader.bin"
+    assemble(boot_src, boot_bin, fmt="bin", defines={
+        "KERNEL_SECTORS": total_sectors,
+        "FS_OFFSET": fs_offset,
+        "FS_SIZE": fs_size
+    })
+
+    make_dynamic_img(boot_bin, "kernel_with_fs.bin", DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 

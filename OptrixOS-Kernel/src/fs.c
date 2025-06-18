@@ -1,6 +1,6 @@
 #include "fs.h"
-#include "resources.h"
 #include <stddef.h>
+#include <stdint.h>
 
 static int streq(const char* a, const char* b) {
     while(*a && *b) {
@@ -33,6 +33,10 @@ static fs_entry root_dir = {"/", 1, NULL, root_entries, 0, ""};
 #define MAX_EXTRA_DIR_ENTRIES 20
 static fs_entry extra_dir_entries[MAX_EXTRA_DIRS][MAX_EXTRA_DIR_ENTRIES];
 static int extra_dir_used = 0;
+
+#define INITRD_INFO_ADDR 0x9000
+typedef struct { uint32_t start; uint32_t size; } initrd_info_t;
+typedef struct { char name[16]; uint32_t size; uint32_t offset; } initrd_entry_t;
 
 fs_entry* fs_get_root(void) {
     return &root_dir;
@@ -68,11 +72,22 @@ void fs_init(void) {
 
     root_dir.child_count = root_count;
 
-    /* add compiled-in resource files to root */
-    for(int i=0; i<resource_files_count && root_dir.child_count < MAX_ROOT_ENTRIES; i++) {
-        fs_entry* f = fs_create_file(&root_dir, resource_files[i].name);
-        if(f)
-            fs_write_file(f, resource_files[i].data);
+    /* load files from initrd image if present */
+    initrd_info_t *info = (initrd_info_t*)INITRD_INFO_ADDR;
+    if(info->start && info->size) {
+        unsigned char *base = (unsigned char*)info->start;
+        uint32_t count = *(uint32_t*)base;
+        initrd_entry_t *entries = (initrd_entry_t*)(base + 4);
+        unsigned char *data_start = base + 4 + count * sizeof(initrd_entry_t);
+        for(uint32_t i=0; i<count && root_dir.child_count < MAX_ROOT_ENTRIES; i++) {
+            fs_entry *f = fs_create_file(&root_dir, entries[i].name);
+            if(!f) break;
+            const char *src = (const char*)(data_start + entries[i].offset);
+            uint32_t len = entries[i].size;
+            uint32_t k=0;
+            while(k < len && k < 255) { f->content[k] = src[k]; k++; }
+            f->content[k < 255 ? k : 255] = '\0';
+        }
     }
 }
 
