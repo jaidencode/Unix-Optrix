@@ -1,0 +1,6 @@
+#ifndef BUILD_PARAMS_H
+#define BUILD_PARAMS_H
+#define KERNEL_SECTORS 24
+#define FS_START_SECTOR 25
+#define FS_SECTORS 1
+#endif

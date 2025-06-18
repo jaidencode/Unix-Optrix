@@ -77,8 +77,8 @@ def assemble(src, out, fmt="bin", defines=None):
     run(cmd)
     tmp_files.append(out)
 
-def compile_c(src, out):
-    run([
+def compile_c(src, out, extra_flags=None):
+    cmd = [
         CC,
         "-ffreestanding",
         "-fno-pie",
@@ -88,20 +88,24 @@ def compile_c(src, out):
         "-o", out,
         "-Iinclude",
         "-IOptrixOS-Kernel/include"
-    ])
+    ]
+    if extra_flags:
+        cmd += extra_flags
+    run(cmd)
     tmp_files.append(out)
 
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
+def make_dynamic_img(boot_bin, kernel_bin, fs_img, img_out):
     print("Creating dynamically-sized disk image...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
+    fsdata = open(fs_img, "rb").read()
+    total = 512 + len(kern) + len(fsdata)
     min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
     if img_size < min_size:
@@ -109,6 +113,7 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
+        img.write(fsdata)
         img.write(b'\0' * (img_size - total))
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
@@ -128,38 +133,36 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
-# === BINARY RESOURCE EMBEDDING LOGIC ===
-# No binary resources for the text mode build
+# === SIMPLE FS IMAGE ===
 RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
-GENERATED_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "resources.c")
-GENERATED_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "resources.h")
-resource_bin_files = []
+FS_IMAGE = os.path.join(KERNEL_PROJECT_ROOT, "fs.img")
 
-def generate_resource_files():
-    if not os.path.isdir(RESOURCE_DIR):
-        return
+def generate_fs_image():
     entries = []
-    for root, _, files in os.walk(RESOURCE_DIR):
-        for f in files:
-            path = os.path.join(root, f)
-            rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-            with open(path, "r", errors="ignore") as fh:
-                data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-            entries.append((rel, data))
-    with open(GENERATED_H, "w") as h:
-        h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
-        h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
-        h.write("extern const int resource_files_count;\n")
-        h.write("extern const resource_file resource_files[];\n")
-        h.write("#endif\n")
-    with open(GENERATED_C, "w") as c:
-        c.write('#include "resources.h"\n')
-        c.write("const resource_file resource_files[] = {\n")
-        for name, data in entries:
-            c.write(f'    {{"{name}", "{data}"}},\n')
-        c.write("};\n")
-        c.write(f"const int resource_files_count = {len(entries)};\n")
-    return GENERATED_C
+    if os.path.isdir(RESOURCE_DIR):
+        for root, dirs, files in os.walk(RESOURCE_DIR):
+            for d in dirs:
+                path = os.path.join(root, d)
+                rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
+                entries.append((1, "/" + rel, b""))
+            for f in files:
+                path = os.path.join(root, f)
+                rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                entries.append((0, "/" + rel, data))
+    with open(FS_IMAGE, "wb") as out:
+        out.write((0x46534631).to_bytes(4, "little"))
+        out.write(len(entries).to_bytes(4, "little"))
+        for typ, name, data in entries:
+            name_b = name.encode("utf-8")
+            out.write(bytes([typ]))
+            out.write(bytes([len(name_b)]))
+            out.write(name_b)
+            if typ == 0:
+                out.write(len(data).to_bytes(4, "little"))
+                out.write(data)
+    return FS_IMAGE, (os.path.getsize(FS_IMAGE)+511)//512
 
 def objcopy_binary(input_path, output_obj):
     if not os.path.exists(input_path):
@@ -180,10 +183,20 @@ def objcopy_binary(input_path, output_obj):
         print(f"Resource already up to date: {output_obj}")
 
 
-def build_kernel(asm_files, c_files, out_bin):
+def write_build_params(ksec, fs_sectors):
+    hdr = os.path.join(KERNEL_PROJECT_ROOT, "include", "build_params.h")
+    with open(hdr, "w") as f:
+        f.write("#ifndef BUILD_PARAMS_H\n#define BUILD_PARAMS_H\n")
+        f.write(f"#define KERNEL_SECTORS {ksec}\n")
+        f.write(f"#define FS_START_SECTOR {ksec + 1}\n")
+        f.write(f"#define FS_SECTORS {fs_sectors}\n")
+        f.write("#endif\n")
+
+def build_kernel(asm_files, c_files, out_bin, fs_sectors):
     ensure_obj_dir()
-    obj_files = []
     bootloader_src = None
+    write_build_params(0, fs_sectors)
+    obj_files = []
 
     for asm in asm_files:
         obj = obj_from_src(asm)
@@ -196,7 +209,7 @@ def build_kernel(asm_files, c_files, out_bin):
             tmp_files.append(obj)
     for c in c_files:
         c_obj = obj_from_src(c)
-        compile_c(c, c_obj)
+        compile_c(c, c_obj, ["-include", "OptrixOS-Kernel/include/build_params.h"])
         obj_files.append(c_obj)
     # Always check for kernel.ld in project root or current dir
     linker_script = os.path.join("OptrixOS-Kernel", "kernel.ld")
@@ -220,10 +233,35 @@ def build_kernel(asm_files, c_files, out_bin):
     kernel_bytes = os.path.getsize(out_bin)
     sectors = roundup(kernel_bytes, 512) // 512
 
+    # rebuild with proper parameters
+    write_build_params(sectors, fs_sectors)
+    obj_files = []
+    for asm in asm_files:
+        obj = obj_from_src(asm)
+        base = os.path.splitext(os.path.basename(asm))[0]
+        if "bootloader" not in base:
+            run([NASM, "-felf32", asm, "-o", obj])
+            obj_files.append(obj)
+            tmp_files.append(obj)
+    for c in c_files:
+        c_obj = obj_from_src(c)
+        compile_c(c, c_obj, ["-include", "OptrixOS-Kernel/include/build_params.h"])
+        obj_files.append(c_obj)
+    link_cmd_elf = [
+        LD, "-T", linker_script, "-m", "elf_i386", "-nostdlib"
+    ] + obj_files + ["-o", elf_out]
+    link_cmd_bin = [
+        LD, "-T", linker_script, "-m", "elf_i386", "--oformat", "binary", "-nostdlib"
+    ] + obj_files + ["-o", out_bin]
+    run(link_cmd_elf)
+    run(link_cmd_bin)
+    kernel_bytes = os.path.getsize(out_bin)
+    sectors = roundup(kernel_bytes, 512) // 512
+
     boot_bin = "bootloader.bin"
     assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
 
-    return boot_bin, out_bin
+    return boot_bin, out_bin, sectors
 
 def on_rm_error(func, path, exc_info):
     # Make file writable and retry (Windows-safe)
@@ -297,13 +335,11 @@ def main():
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
-    res_c = generate_resource_files()
-    if res_c and res_c not in c_files:
-        c_files.append(res_c)
+    fs_img, fs_sectors = generate_fs_image()
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    boot_bin, kernel_bin, ksecs = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN, fs_sectors=fs_sectors)
+    make_dynamic_img(boot_bin, kernel_bin, fs_img, DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
