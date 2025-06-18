@@ -107,6 +107,9 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size
+    # mkisofs expects the boot image size to be a multiple of 2048 bytes.
+    if img_size % 2048 != 0:
+        img_size = roundup(img_size, 2048)
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
