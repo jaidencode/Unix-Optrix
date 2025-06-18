@@ -3,6 +3,7 @@ import sys
 import os
 import shutil
 import stat
+import argparse
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -27,8 +28,10 @@ if not shutil.which(OBJDUMP):
 
 CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR") or r"C:\\Program Files (x86)\\cdrtools"
 MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs.exe")
-if not os.path.isfile(MKISOFS_EXE):
-    MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
+# Try to locate mkisofs or the genisoimage alternative automatically
+if not (os.path.isfile(MKISOFS_EXE) or shutil.which(MKISOFS_EXE)):
+    MKISOFS_EXE = shutil.which("mkisofs") or shutil.which("genisoimage")
+
 
 # Only build sources inside the kernel directory
 KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
@@ -38,6 +41,11 @@ KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Build OptrixOS")
+    parser.add_argument("--iso", default="OptrixOS.iso", help="Output ISO path")
+    return parser.parse_args()
 
 tmp_files = []
 
@@ -256,9 +264,9 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
 def make_iso_with_tree(tmp_iso_dir, iso_out):
     print(f"Creating ISO using: {MKISOFS_EXE}")
     print(f"ISO should be written to: {iso_out}")
-    if not os.path.isfile(MKISOFS_EXE):
-        print(f"Error: mkisofs.exe not found at {MKISOFS_EXE}!")
-        sys.exit(1)
+    if not MKISOFS_EXE or not (os.path.isfile(MKISOFS_EXE) or shutil.which(MKISOFS_EXE)):
+        print("mkisofs/genisoimage not found, skipping ISO creation.")
+        return
     if os.path.exists(iso_out):
         os.remove(iso_out)
     cmd = [
@@ -270,6 +278,9 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         tmp_iso_dir
     ]
     run(cmd)
+    if not os.path.exists(iso_out):
+        print("ISO creation failed: output file not produced.")
+        return
     # Forcibly copy ISO to script's dir if not already there
     script_dir = os.path.dirname(os.path.abspath(__file__))
     dest_iso = os.path.join(script_dir, "OptrixOS.iso")
@@ -293,6 +304,9 @@ def cleanup():
         shutil.rmtree(OBJ_DIR, onerror=on_rm_error)
 
 def main():
+    args = parse_args()
+    global OUTPUT_ISO
+    OUTPUT_ISO = os.path.abspath(args.iso)
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
@@ -318,7 +332,10 @@ def main():
     if os.path.exists(TMP_ISO_DIR):
         shutil.rmtree(TMP_ISO_DIR, onerror=on_rm_error)
     cleanup()
-    print(f"\nBuild complete! Bootable ISO is at: {OUTPUT_ISO}")
+    if os.path.exists(OUTPUT_ISO):
+        print(f"\nBuild complete! Bootable ISO is at: {OUTPUT_ISO}")
+    else:
+        print("\nBuild complete! ISO not created; disk.img is available.")
 
 if __name__ == "__main__":
     main()
