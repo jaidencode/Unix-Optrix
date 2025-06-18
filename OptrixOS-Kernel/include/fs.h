@@ -2,12 +2,12 @@
 #define FS_H
 
 typedef struct fs_entry {
-    char name[32];
+    char* name;
     int is_dir;
     struct fs_entry* parent;
-    struct fs_entry* children;
-    int child_count;
-    char content[256];
+    struct fs_entry* child;
+    struct fs_entry* sibling;
+    char* content;
 } fs_entry;
 
 fs_entry* fs_find_entry(fs_entry* dir, const char* name);

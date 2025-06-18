@@ -1,151 +1,113 @@
 #include "fs.h"
+#include "mem.h"
 #include "resources.h"
 #include <stddef.h>
 
-static int streq(const char* a, const char* b) {
-    while(*a && *b) {
-        if(*a != *b) return 0;
-        a++; b++;
-    }
-    return *a == *b;
+static fs_entry root_dir;
+
+static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
+
+static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b)return 0;a++;b++;}return *a==*b;}
+
+static fs_entry* alloc_entry(const char*name,int is_dir){
+    fs_entry* e = mem_alloc(sizeof(fs_entry));
+    if(!e) return NULL;
+    size_t len=fs_strlen(name)+1;
+    e->name = mem_alloc(len);
+    if(!e->name) return NULL;
+    for(size_t i=0;i<len;i++) e->name[i]=name[i];
+    e->is_dir=is_dir;
+    e->parent=NULL;
+    e->child=NULL;
+    e->sibling=NULL;
+    e->content=NULL;
+    return e;
 }
 
-#define MAX_ROOT_ENTRIES 20
-static fs_entry root_entries[MAX_ROOT_ENTRIES];
-static int root_count = 0;
-
-#define MAX_BIN_ENTRIES 5
-static fs_entry bin_entries[MAX_BIN_ENTRIES];
-static int bin_count = 0;
-
-#define MAX_DOC_ENTRIES 5
-static fs_entry docs_entries[MAX_DOC_ENTRIES];
-static int docs_count = 0;
-
-/* entries for /desktop */
-#define MAX_DESKTOP_ENTRIES 20
-static fs_entry desktop_entries[MAX_DESKTOP_ENTRIES];
-static int desktop_count = 0;
-
-static fs_entry root_dir = {"/", 1, NULL, root_entries, 0, ""};
-
-#define MAX_EXTRA_DIRS 20
-#define MAX_EXTRA_DIR_ENTRIES 20
-static fs_entry extra_dir_entries[MAX_EXTRA_DIRS][MAX_EXTRA_DIR_ENTRIES];
-static int extra_dir_used = 0;
-
-fs_entry* fs_get_root(void) {
+fs_entry* fs_get_root(void){
     return &root_dir;
 }
 
-void fs_init(void) {
-    root_count = 0;
-    bin_count = 0;
-    docs_count = 0;
-    desktop_count = 0;
-
-    /* setup /bin directory */
-    fs_entry bin = {"bin", 1, &root_dir, bin_entries, 0, ""};
-    root_entries[root_count++] = bin;
-
-    /* setup /docs directory */
-    fs_entry docs = {"docs", 1, &root_dir, docs_entries, 0, ""};
-    root_entries[root_count++] = docs;
-
-    /* setup /desktop directory */
-    fs_entry desktop = {"desktop", 1, &root_dir, desktop_entries, 0, ""};
-    root_entries[root_count++] = desktop;
-    fs_entry *desktop_ptr = &root_entries[root_count-1];
-
-    /* simple readme */
-    fs_entry readme = {"readme.txt", 0, &root_dir, NULL, 0, "Welcome to OptrixOS"};
-    root_entries[root_count++] = readme;
-
-    /* /desktop/terminal.opt executable */
-    fs_entry term = {"terminal.opt", 0, desktop_ptr, NULL, 0, ""};
-    desktop_entries[desktop_count++] = term;
-    desktop_ptr->child_count = desktop_count;
-
-    root_dir.child_count = root_count;
-
-    /* add compiled-in resource files to root */
-    for(int i=0; i<resource_files_count && root_dir.child_count < MAX_ROOT_ENTRIES; i++) {
-        fs_entry* f = fs_create_file(&root_dir, resource_files[i].name);
-        if(f)
-            fs_write_file(f, resource_files[i].data);
-    }
+static void add_child(fs_entry*parent,fs_entry*child){
+    child->parent=parent;
+    child->sibling=parent->child;
+    parent->child=child;
 }
 
-fs_entry* fs_find_subdir(fs_entry* dir, const char* name) {
-    for(int i=0; i<dir->child_count; i++)
-        if(dir->children[i].is_dir && name && dir->children[i].name &&
-           streq(dir->children[i].name, name))
-            return (fs_entry*)&dir->children[i];
-    return 0;
-}
-
-fs_entry* fs_find_entry(fs_entry* dir, const char* name) {
-    for(int i=0; i<dir->child_count; i++)
-        if(name && streq(dir->children[i].name, name))
-            return &dir->children[i];
-    return 0;
-}
-
-fs_entry* fs_create_file(fs_entry* dir, const char* name) {
-    int limit = (dir == &root_dir) ? MAX_ROOT_ENTRIES : MAX_EXTRA_DIR_ENTRIES;
-    if(dir->child_count >= limit) return 0;
-    fs_entry* e = &dir->children[dir->child_count++];
-    for(int i=0;i<32;i++){e->name[i]=0;}
-    int idx=0; while(name[idx] && idx<31){ e->name[idx]=name[idx]; idx++; }
-    e->name[idx]='\0';
-    e->is_dir = 0;
-    e->parent = dir;
-    e->children = NULL;
-    e->child_count = 0;
-    e->content[0]='\0';
+fs_entry* fs_create_dir(fs_entry* dir, const char* name){
+    fs_entry* e=alloc_entry(name,1);
+    if(!e) return NULL;
+    add_child(dir,e);
     return e;
 }
 
-fs_entry* fs_create_dir(fs_entry* dir, const char* name) {
-    int limit = (dir == &root_dir) ? MAX_ROOT_ENTRIES : MAX_EXTRA_DIR_ENTRIES;
-    if(dir->child_count >= limit) return 0;
-    if(extra_dir_used >= MAX_EXTRA_DIRS) return 0;
-    fs_entry* e = &dir->children[dir->child_count++];
-    for(int i=0;i<32;i++){e->name[i]=0;}
-    int idx=0; while(name[idx] && idx<31){ e->name[idx]=name[idx]; idx++; }
-    e->name[idx]='\0';
-    e->is_dir = 1;
-    e->parent = dir;
-    e->children = extra_dir_entries[extra_dir_used];
-    e->child_count = 0;
-    e->content[0]='\0';
-    extra_dir_used++;
+fs_entry* fs_create_file(fs_entry* dir, const char* name){
+    fs_entry* e=alloc_entry(name,0);
+    if(!e) return NULL;
+    add_child(dir,e);
     return e;
 }
 
-int fs_delete_entry(fs_entry* dir, const char* name) {
-    for(int i=0;i<dir->child_count;i++) {
-        if(streq(dir->children[i].name,name)) {
-            for(int j=i;j<dir->child_count-1;j++)
-                dir->children[j]=dir->children[j+1];
-            dir->child_count--;
+fs_entry* fs_find_entry(fs_entry* dir, const char* name){
+    for(fs_entry*c=dir->child;c;c=c->sibling)
+        if(streq(c->name,name)) return c;
+    return NULL;
+}
+
+fs_entry* fs_find_subdir(fs_entry* dir, const char* name){
+    for(fs_entry*c=dir->child;c;c=c->sibling)
+        if(c->is_dir && streq(c->name,name)) return c;
+    return NULL;
+}
+
+int fs_delete_entry(fs_entry* dir, const char* name){
+    fs_entry* prev=NULL; fs_entry* cur=dir->child;
+    while(cur){
+        if(streq(cur->name,name)){
+            if(prev) prev->sibling=cur->sibling; else dir->child=cur->sibling;
             return 1;
         }
+        prev=cur; cur=cur->sibling;
     }
     return 0;
 }
 
-void fs_write_file(fs_entry* file, const char* text) {
-    if(!file || file->is_dir) return;
-    int k = 0;
-    while(text[k] && k < 255) {
-        file->content[k] = text[k];
-        k++;
-    }
-    file->content[k] = '\0';
+void fs_write_file(fs_entry* file, const char* text){
+    if(!file||file->is_dir) return;
+    size_t len=fs_strlen(text)+1;
+    file->content=mem_alloc(len);
+    if(!file->content) return;
+    for(size_t i=0;i<len;i++) file->content[i]=text[i];
 }
 
-const char* fs_read_file(fs_entry* file) {
-    if(!file || file->is_dir) return "";
+const char* fs_read_file(fs_entry* file){
+    if(!file||file->is_dir||!file->content) return "";
     return file->content;
+}
+
+void fs_init(void){
+    root_dir.name="/";
+    root_dir.is_dir=1;
+    root_dir.parent=NULL;
+    root_dir.child=NULL;
+    root_dir.sibling=NULL;
+    root_dir.content=NULL;
+
+    fs_entry* bin=fs_create_dir(&root_dir,"bin");
+    (void)bin;
+    fs_entry* docs=fs_create_dir(&root_dir,"docs");
+    (void)docs;
+    fs_entry* desktop=fs_create_dir(&root_dir,"desktop");
+    fs_entry* resources=fs_create_dir(&root_dir,"resources");
+
+    fs_entry* readme=fs_create_file(&root_dir,"readme.txt");
+    fs_write_file(readme,"Welcome to OptrixOS");
+
+    fs_entry* term=fs_create_file(desktop,"terminal.opt");
+    (void)term;
+
+    for(int i=0;i<resource_files_count;i++){
+        fs_entry* f=fs_create_file(resources,resource_files[i].name);
+        if(f) fs_write_file(f,resource_files[i].data);
+    }
 }

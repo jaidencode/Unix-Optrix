@@ -12,6 +12,8 @@ static int row = 0;
 static int col = 0;
 static uint8_t text_color = DEFAULT_COLOR;
 
+static size_t t_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
+
 static void scroll(void) {
     volatile uint16_t *vga = (uint16_t*)0xB8000;
     for(int y=1; y<SCREEN_ROWS; y++)
@@ -33,6 +35,7 @@ static void put_char(char c) {
         if(col>=SCREEN_COLS) { col=0; row++; }
     }
     if(row>=SCREEN_ROWS) { scroll(); row=SCREEN_ROWS-1; }
+    screen_set_cursor(col, row);
 }
 
 static void print(const char *s) { while(*s) put_char(*s++); }
@@ -56,6 +59,7 @@ static void read_line(char *buf, size_t max) {
         if(c=='\n') { put_char('\n'); break; }
         if(c=='\b') {
             if(idx>0) { idx--; put_char('\b'); }
+            screen_set_cursor(col, row);
             continue;
         }
         if(idx<max-1) {
@@ -93,6 +97,11 @@ static unsigned int uptime = 0;
 static fs_entry* current_dir;
 static char current_path[32] = "/";
 
+static void print_prompt(void){
+    print(current_path);
+    print("$ ");
+}
+
 static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b) return 0;a++;b++;}return *a==*b;}
 static int strprefix(const char*s,const char*p){while(*p){if(*s!=*p) return 0;s++;p++;}return 1;}
 
@@ -110,15 +119,42 @@ static void cmd_mul(const char*args){int a,b;parse_two_ints(args,&a,&b);print_in
 
 static unsigned int rand_state=1234567;static void cmd_rand(void){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
 
-static void cmd_dir(void){for(int i=0;i<current_dir->child_count;i++){print(current_dir->children[i].name);if(current_dir->children[i].is_dir)print("/");print("  ");}put_char('\n');}
+static void cmd_dir(void){
+    for(fs_entry* f=current_dir->child; f; f=f->sibling){
+        print(f->name);
+        if(f->is_dir) print("/");
+        print("  ");
+    }
+    put_char('\n');
+}
 static void cmd_cd(const char*args){if(streq(args,"/")||args[0]==0){current_dir=fs_get_root();current_path[0]='/';current_path[1]='\0';return;}if(streq(args,"..")){if(current_dir->parent){current_dir=current_dir->parent;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';const char*n=current_dir->name;int i=0;while(n[i]){current_path[i+1]=n[i];i++;}current_path[i+1]='\0';}}return;}fs_entry*d=fs_find_subdir(current_dir,args);if(d){current_dir=d;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';int i=0;while(args[i]){current_path[i+1]=args[i];i++;}current_path[i+1]='\0';}}else{print("No such directory\n");}}
 static void cmd_pwd(void){print(current_path);put_char('\n');}
 static void cmd_cat(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}else print("File not found\n");}
 static void cmd_touch(const char*name){if(fs_find_entry(current_dir,name)){print("Exists\n");return;}if(fs_create_file(current_dir,name))print("Created\n");else print("Fail\n");}
 static void cmd_rm(const char*name){if(fs_delete_entry(current_dir,name))print("Removed\n");else print("Not found\n");}
 static void cmd_mkdir(const char*name){if(fs_create_dir(current_dir,name))print("Dir created\n");else print("Fail\n");}
-static void cmd_rmdir(const char*name){fs_entry*d=fs_find_entry(current_dir,name);if(d&&d->is_dir&&d->child_count==0){fs_delete_entry(current_dir,name);print("Dir removed\n");}else print("Not empty\n");}
-static void cmd_mv(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_find_entry(current_dir,src);if(f){int k=0;while(dst[k]&&k<31){f->name[k]=dst[k];k++;}f->name[k]=0;print("Renamed\n");}else print("No file\n");}
+static void cmd_rmdir(const char*name){
+    fs_entry*d=fs_find_entry(current_dir,name);
+    if(d && d->is_dir && d->child==0){
+        fs_delete_entry(current_dir,name);
+        print("Dir removed\n");
+    } else {
+        print("Not empty\n");
+    }
+}
+static void cmd_mv(const char*args){
+    char src[32];char dst[32];int i=0;
+    while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;
+    if(args[i]==0){print("Usage\n");return;}i++;
+    int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;
+    fs_entry*f=fs_find_entry(current_dir,src);
+    if(f){
+        size_t len=t_strlen(dst)+1;
+        char* newname=mem_alloc(len);
+        if(newname){for(size_t k=0;k<len;k++) newname[k]=dst[k]; f->name=newname;}
+        print("Renamed\n");
+    }else print("No file\n");
+}
 static void cmd_cp(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_find_entry(current_dir,src);if(!f||f->is_dir){print("No file\n");return;}fs_entry*d=fs_find_entry(current_dir,dst);if(!d)d=fs_create_file(current_dir,dst);if(d&&!d->is_dir){fs_write_file(d,fs_read_file(f));print("Copied\n");}else print("Fail\n");}
 static void cmd_date(void){print("Build: " __DATE__ " " __TIME__ "\n");}
 static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
@@ -168,7 +204,7 @@ void terminal_init(void){
 void terminal_run(void){
     char buf[128];
     while(1){
-        print("$ ");
+        print_prompt();
         read_line(buf,sizeof(buf));
         if(buf[0]) execute(buf);
         uptime++;
