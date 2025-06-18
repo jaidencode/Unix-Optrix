@@ -12,5 +12,6 @@ void screen_clear(void);
 void screen_put_char(int col, int row, char c, uint8_t color);
 void screen_put_char_offset(int col, int row, char c, uint8_t color,
                             int off_x, int off_y);
+void screen_move_cursor(int col, int row);
 
 #endif

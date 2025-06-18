@@ -1,5 +1,6 @@
 #include "screen.h"
 #include <stdint.h>
+#include "ports.h"
 
 static volatile uint16_t *vga = (uint16_t*)0xB8000;
 
@@ -22,4 +23,14 @@ void screen_put_char(int col, int row, char c, uint8_t color) {
 void screen_put_char_offset(int col, int row, char c, uint8_t color,
                             int off_x, int off_y) {
     screen_put_char(col + off_x, row + off_y, c, color);
+}
+
+void screen_move_cursor(int col, int row) {
+    if(col < 0 || col >= SCREEN_COLS || row < 0 || row >= SCREEN_ROWS)
+        return;
+    uint16_t pos = row * SCREEN_COLS + col;
+    outb(0x3D4, 0x0F);
+    outb(0x3D5, pos & 0xFF);
+    outb(0x3D4, 0x0E);
+    outb(0x3D5, (pos >> 8) & 0xFF);
 }
