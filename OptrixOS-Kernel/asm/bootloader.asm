@@ -5,6 +5,7 @@ ORG 0x7C00
 %define KERNEL_SECTORS 1
 %endif
 
+
 start:
     cli
     xor ax, ax
@@ -30,14 +31,38 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
-    mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    ; load kernel starting at sector 2 using a loop so large images work
+    mov si, 0          ; segment portion of load address
+    mov di, 0x1000     ; offset portion of load address
+    mov dx, [BOOT_DRIVE]
+    xor ch, ch         ; cylinder 0
+    xor dh, dh         ; head 0
+    mov cl, 2          ; sector 2
+    mov cx, [kernel_sectors]
+load_loop:
+    mov es, si
+    mov bx, di
+    mov ah, 0x02
+    mov al, 1
     int 0x13
+    add di, 512
+    cmp di, 0x10000
+    jb .addr_ok
+    sub di, 0x10000
+    add si, 0x1000
+.addr_ok:
+    inc cl
+    cmp cl, 19
+    jl .sect_ok
+    mov cl, 1
+    inc dh
+    cmp dh, 2
+    jl .sect_ok
+    mov dh, 0
+    inc ch
+.sect_ok:
+    dec cx
+    jnz load_loop
 
     ; setup basic GDT for protected mode
     lgdt [gdt_desc]
@@ -79,6 +104,8 @@ gdt_desc:
 BOOT_DRIVE: db 0
 
 bootmsg: db 'Loading OptrixOS...',0
+
+kernel_sectors: dw KERNEL_SECTORS
 
     ; boot signature
     times 510-($-$$) db 0
