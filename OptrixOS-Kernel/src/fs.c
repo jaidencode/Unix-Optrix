@@ -1,7 +1,11 @@
 #include "fs.h"
 #include "bootinfo.h"
+#include "mem.h"
 #include <stdint.h>
 #include <stddef.h>
+
+void fs_write_file(fs_entry* file, const char* text);
+void fs_write_file_len(fs_entry* file, const char* data, unsigned int len);
 
 static int streq(const char* a, const char* b) {
     while(*a && *b) {
@@ -28,7 +32,7 @@ static int docs_count = 0;
 static fs_entry desktop_entries[MAX_DESKTOP_ENTRIES];
 static int desktop_count = 0;
 
-static fs_entry root_dir = {"/", 1, NULL, root_entries, 0, ""};
+static fs_entry root_dir = {"/", 1, NULL, root_entries, 0, NULL, 0};
 
 #define MAX_EXTRA_DIRS 20
 #define MAX_EXTRA_DIR_ENTRIES 20
@@ -46,24 +50,25 @@ void fs_init(const void* initrd_start, unsigned int initrd_size) {
     desktop_count = 0;
 
     /* setup /bin directory */
-    fs_entry bin = {"bin", 1, &root_dir, bin_entries, 0, ""};
+    fs_entry bin = {"bin", 1, &root_dir, bin_entries, 0, NULL, 0};
     root_entries[root_count++] = bin;
 
     /* setup /docs directory */
-    fs_entry docs = {"docs", 1, &root_dir, docs_entries, 0, ""};
+    fs_entry docs = {"docs", 1, &root_dir, docs_entries, 0, NULL, 0};
     root_entries[root_count++] = docs;
 
     /* setup /desktop directory */
-    fs_entry desktop = {"desktop", 1, &root_dir, desktop_entries, 0, ""};
+    fs_entry desktop = {"desktop", 1, &root_dir, desktop_entries, 0, NULL, 0};
     root_entries[root_count++] = desktop;
     fs_entry *desktop_ptr = &root_entries[root_count-1];
 
     /* simple readme */
-    fs_entry readme = {"readme.txt", 0, &root_dir, NULL, 0, "Welcome to OptrixOS"};
+    fs_entry readme = {"readme.txt", 0, &root_dir, NULL, 0, NULL, 0};
     root_entries[root_count++] = readme;
+    fs_write_file(&root_entries[root_count-1], "Welcome to OptrixOS");
 
     /* /desktop/terminal.opt executable */
-    fs_entry term = {"terminal.opt", 0, desktop_ptr, NULL, 0, ""};
+    fs_entry term = {"terminal.opt", 0, desktop_ptr, NULL, 0, NULL, 0};
     desktop_entries[desktop_count++] = term;
     desktop_ptr->child_count = desktop_count;
 
@@ -83,11 +88,7 @@ void fs_init(const void* initrd_start, unsigned int initrd_size) {
             if(ptr + sz > (const uint8_t*)initrd_start + initrd_size) break;
             fs_entry* f = fs_create_file(&root_dir, namebuf);
             if(f) {
-                char text[256];
-                uint32_t cpy = sz < 255 ? sz : 255;
-                for(uint32_t k=0;k<cpy;k++) text[k] = ((const char*)ptr)[k];
-                text[cpy]='\0';
-                fs_write_file(f, text);
+                fs_write_file_len(f, (const char*)ptr, sz);
             }
             ptr += sz;
         }
@@ -133,7 +134,8 @@ fs_entry* fs_create_file(fs_entry* dir, const char* name) {
     e->parent = dir;
     e->children = NULL;
     e->child_count = 0;
-    e->content[0]='\0';
+    e->content = NULL;
+    e->size = 0;
     return e;
 }
 
@@ -149,7 +151,8 @@ fs_entry* fs_create_dir(fs_entry* dir, const char* name) {
     e->parent = dir;
     e->children = extra_dir_entries[extra_dir_used];
     e->child_count = 0;
-    e->content[0]='\0';
+    e->content = NULL;
+    e->size = 0;
     extra_dir_used++;
     return e;
 }
@@ -168,17 +171,24 @@ int fs_delete_entry(fs_entry* dir, const char* name) {
 
 void fs_write_file(fs_entry* file, const char* text) {
     if(!file || file->is_dir) return;
-    int k = 0;
-    while(text[k] && k < 255) {
-        file->content[k] = text[k];
-        k++;
-    }
-    file->content[k] = '\0';
+    unsigned int len = 0;
+    while(text[len]) len++;
+    fs_write_file_len(file, text, len);
+}
+
+void fs_write_file_len(fs_entry* file, const char* data, unsigned int len) {
+    if(!file || file->is_dir) return;
+    char* buf = mem_alloc(len + 1);
+    if(!buf) return;
+    for(unsigned int i=0;i<len;i++) buf[i]=data[i];
+    buf[len]='\0';
+    file->content = buf;
+    file->size = len;
 }
 
 const char* fs_read_file(fs_entry* file) {
     if(!file || file->is_dir) return "";
-    return file->content;
+    return file->content ? file->content : "";
 }
 
 fs_entry* fs_resolve(fs_entry* start, const char* path) {

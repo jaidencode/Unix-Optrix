@@ -15,7 +15,8 @@ behaviour of the historic `fsboot` loader. When executed it:
 
 The kernel runs entirely in text mode and provides a small shell interface.
 
-Use `python3 setup_bootloader.py` to assemble and link the boot files. The script
+Use `python3 setup_bootloader.py` (or simply run `make` inside
+`OptrixOS-Kernel`) to assemble and link the boot files. The script
 automatically packages everything under `OptrixOS-Kernel/resources` into an
 initrd so these files appear in the OS root directory. A cross compiler
 (`i686-linux-gnu-gcc`/`ld`) is preferred, but if it is not installed the script
