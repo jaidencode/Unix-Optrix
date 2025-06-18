@@ -4,6 +4,13 @@ ORG 0x7C00
 %ifndef KERNEL_SECTORS
 %define KERNEL_SECTORS 1
 %endif
+%ifndef FS_OFFSET
+%define FS_OFFSET 0
+%endif
+%ifndef FS_SIZE
+%define FS_SIZE 0
+%endif
+FS_INFO_ADDR equ 0x9000
 
 start:
     cli
@@ -38,6 +45,13 @@ start:
     mov al, KERNEL_SECTORS
     mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
     int 0x13
+
+    ; save initrd location for kernel
+    mov eax, FS_OFFSET
+    add eax, 0x1000
+    mov [FS_INFO_ADDR], eax
+    mov eax, FS_SIZE
+    mov [FS_INFO_ADDR+4], eax
 
     ; setup basic GDT for protected mode
     lgdt [gdt_desc]
