@@ -4,6 +4,13 @@ ORG 0x7C00
 %ifndef KERNEL_SECTORS
 %define KERNEL_SECTORS 1
 %endif
+%ifndef INITRD_SECTORS
+%define INITRD_SECTORS 0
+%endif
+%ifndef INITRD_ADDR
+%define INITRD_ADDR 0x80000
+%endif
+%define INITRD_SEG (INITRD_ADDR >> 4)
 
 start:
     cli
@@ -35,8 +42,21 @@ start:
     mov dl, [BOOT_DRIVE]
     mov dh, 0         ; head
     mov ah, 0x02      ; BIOS read disk
+
     mov al, KERNEL_SECTORS
     mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    int 0x13
+
+    ; load initrd following the kernel
+    mov bx, INITRD_ADDR & 0xFFFF
+    mov ax, INITRD_SEG
+    mov es, ax
+    mov dl, [BOOT_DRIVE]
+    mov dh, 0
+    mov ah, 0x02
+    mov al, INITRD_SECTORS
+    mov ch, 0
+    mov cl, 2 + KERNEL_SECTORS
     int 0x13
 
     ; setup basic GDT for protected mode
@@ -46,6 +66,8 @@ start:
     mov eax, cr0
     or eax, 1
     mov cr0, eax
+    mov eax, INITRD_ADDR
+    mov ebx, INITRD_SECTORS * 512
     jmp 0x08:protected_mode
 
 ; 32-bit protected mode code

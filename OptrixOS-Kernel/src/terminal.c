@@ -3,6 +3,7 @@
 #include "screen.h"
 #include "fs.h"
 #include "mem.h"
+#include "bootinfo.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -164,7 +165,7 @@ static void execute(const char*line){
 
 void terminal_init(void){
     screen_clear();
-    fs_init();
+    fs_init(initrd_start, initrd_size);
     current_dir=fs_get_root();
     fs_get_path(current_dir, current_path, sizeof(current_path));
     fs_entry* logo = fs_resolve(current_dir, "logo.txt");
