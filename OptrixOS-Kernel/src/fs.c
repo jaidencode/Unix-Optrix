@@ -69,7 +69,7 @@ void fs_init(const void* initrd_start, unsigned int initrd_size) {
 
     root_dir.child_count = root_count;
 
-    /* load files from initrd */
+    /* load files from initrd if provided */
     if(initrd_start && initrd_size >= 4) {
         const uint8_t* ptr = (const uint8_t*)initrd_start;
         uint32_t count = *(const uint32_t*)ptr; ptr += 4;
@@ -91,6 +91,19 @@ void fs_init(const void* initrd_start, unsigned int initrd_size) {
             }
             ptr += sz;
         }
+    } else {
+        /* fallback files when no initrd is available */
+        fs_entry* f = fs_create_file(&root_dir, "logo.txt");
+        if(f) fs_write_file(f,
+            "  ____        _   _      ____  _____\n"
+            " / __ \\      | | | |    / __ \\|  __ \\n"
+            "| |  | |_ __ | |_| |_  | |  | | |__) |\n"
+            "| |  | | '_ \\| __| __| | |  | |  ___/\n"
+            "| |__| | | | | |_| |_  | |__| | |\n"
+            " \\____/|_| |_|\\__|\\__|  \\____/|_|");
+
+        f = fs_create_file(&root_dir, "welcome.txt");
+        if(f) fs_write_file(f, "Welcome to OptrixOS!\nEnjoy your stay.\n");
     }
 }
 
