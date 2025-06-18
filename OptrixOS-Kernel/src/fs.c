@@ -149,3 +149,34 @@ const char* fs_read_file(fs_entry* file) {
     if(!file || file->is_dir) return "";
     return file->content;
 }
+
+static void copy_name(char* dst, const char* src) {
+    int i=0; while(src[i] && i<31){ dst[i]=src[i]; i++; } dst[i]=0;
+}
+
+fs_entry* fs_resolve_path(fs_entry* start, const char* path) {
+    if(!path || !*path) return start;
+    fs_entry* cur = (*path=='/') ? fs_get_root() : start;
+    int i = (*path=='/') ? 1 : 0;
+    char name[32]; int n=0;
+    for(;;) {
+        char c = path[i];
+        if(c=='/' || c==0) {
+            if(n>0) {
+                name[n]=0;
+                if(streq(name,"..")) { if(cur->parent) cur=cur->parent; }
+                else if(!streq(name,".")) {
+                    fs_entry* next = fs_find_entry(cur,name);
+                    if(!next) return 0;
+                    cur = next;
+                }
+                n=0;
+            }
+            if(c==0) break;
+        } else {
+            if(n<31) name[n++]=c;
+        }
+        i++;
+    }
+    return cur;
+}

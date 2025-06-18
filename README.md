@@ -57,6 +57,7 @@ The following commands are implemented:
 * `dir`/`ls`- list directory contents
 * `cd`      - change directory
 * `pwd`     - show current directory
+  Paths may include `/`, `.` and `..` components.
 * `date`/`time` - show build date
 * `uptime`  - show uptime counter
 * `cat`     - view a file
@@ -66,6 +67,7 @@ The following commands are implemented:
 * `mkdir`   - create a directory
 * `rmdir`   - remove an empty directory
 * `cp`      - copy a file
+  Most file commands understand paths with `/`, `.` and `..`.
 * `rand`    - generate a random number
 * `ver`     - show version
 * `shutdown`/`exit` - halt the system
