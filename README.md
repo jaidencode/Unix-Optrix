@@ -15,11 +15,11 @@ behaviour of the historic `fsboot` loader. When executed it:
 
 The kernel runs entirely in text mode and provides a small shell interface.
 
-Use `python3 setup_bootloader.py` to assemble and link the boot files. The
-script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
-`OptrixOS-kernel.bin`. A cross compiler (`i686-linux-gnu-gcc`/`ld`) is preferred,
-but if it is not installed the script will fall back to the system `gcc` and
-`ld` with `-m32`.
+Use `python3 setup_bootloader.py` to assemble and link the boot files. The script
+automatically packages everything under `OptrixOS-Kernel/resources` into an
+initrd so these files appear in the OS root directory. A cross compiler
+(`i686-linux-gnu-gcc`/`ld`) is preferred, but if it is not installed the script
+will fall back to the system `gcc` and `ld` with `-m32`.
 
 
 
@@ -35,8 +35,9 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
-If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
-script outputs `disk.img` which can be run with:
+If `mkisofs` is available an ISO named `OptrixOS.iso` is created. When
+`mkisofs` is not present the build script automatically skips ISO creation and
+outputs `disk.img`, which can be run with:
 
 ```bash
 qemu-system-x86_64 -hda disk.img

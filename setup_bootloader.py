@@ -263,9 +263,9 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
 def make_iso_with_tree(tmp_iso_dir, iso_out):
     print(f"Creating ISO using: {MKISOFS_EXE}")
     print(f"ISO should be written to: {iso_out}")
-    if not os.path.isfile(MKISOFS_EXE):
-        print(f"Error: mkisofs.exe not found at {MKISOFS_EXE}!")
-        sys.exit(1)
+    if not shutil.which(MKISOFS_EXE) and not os.path.isfile(MKISOFS_EXE):
+        print(f"Warning: mkisofs not found (looked for {MKISOFS_EXE}). Skipping ISO creation.")
+        return
     if os.path.exists(iso_out):
         os.remove(iso_out)
     cmd = [
