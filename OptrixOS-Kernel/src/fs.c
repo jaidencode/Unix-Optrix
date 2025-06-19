@@ -1,7 +1,6 @@
 #include "fs.h"
 #include "mem.h"
 #include "disk.h"
-#include "embedded_resources.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -156,56 +155,68 @@ void fs_init(void){
     root_dir.embedded=0;
 
     /*
-       Read the filesystem header from disk to obtain the root table and
-       kernel sizes.  This keeps the in-memory filesystem layout consistent
-       with the values used by the bootloader and build script.
+       Read the filesystem header from disk. The header contains the number of
+       resource entries, the size of the root table in sectors and the number of
+       kernel sectors. Following the header is the table of resource metadata
+       describing each file stored on the disk image.
     */
+    uint32_t entry_count = 0;
     uint32_t root_sectors = 0;
     uint32_t kernel_sectors = 0;
-    {
-        unsigned char buf[512];
-        ata_read_sector(1, buf);
-        root_sectors   = ((uint32_t*)buf)[1];
-        kernel_sectors = ((uint32_t*)buf)[2];
-    }
-    /* Fallback to calculated values if the header looked empty */
+    unsigned char header[512];
+    ata_read_sector(1, header);
+    entry_count   = ((uint32_t*)header)[0];
+    root_sectors  = ((uint32_t*)header)[1];
+    kernel_sectors = ((uint32_t*)header)[2];
+
+    /* Fallback for older images with missing header information */
     if(root_sectors == 0 || kernel_sectors == 0){
         uint32_t kernel_bytes = (uint32_t)&end - 0x1000;
         kernel_sectors = (kernel_bytes + 511) / 512;
-        uint32_t entry_bytes = EMBEDDED_RESOURCE_COUNT * (32 + 4 + 4);
-        uint32_t table_bytes = 12 + entry_bytes;
-        root_sectors = (table_bytes + 511) / 512;
+        root_sectors = (12 + entry_count*(32+4+4) + 511) / 512;
     }
 
-    uint32_t cur_lba = 1 + root_sectors + kernel_sectors;
+    /* Read the full root table */
+    size_t table_bytes = root_sectors * 512;
+    unsigned char* table = mem_alloc(table_bytes);
+    if(!table) return;
+    for(uint32_t i=0;i<root_sectors;i++)
+        ata_read_sector(1 + i, table + i*512);
 
-    for(uint32_t i=0;i<EMBEDDED_RESOURCE_COUNT;i++){
-        const char* name = embedded_resources[i].name;
+    unsigned char* p = table + 12;
+    for(uint32_t i=0;i<entry_count;i++){
+        char name_buf[33];
+        for(int j=0;j<32;j++)
+            name_buf[j] = p[j];
+        name_buf[32] = '\0';
+        uint32_t lba = *(uint32_t*)(p + 32);
+        uint32_t size = *(uint32_t*)(p + 36);
+        p += 32 + 4 + 4;
+
         fs_entry* dir = &root_dir;
         char part[32];
-        size_t pi=0;
+        size_t pi = 0;
         for(size_t j=0;;j++){
-            char c = name[j];
-            if(c=='/' || c==0){
-                part[pi]=0;
-                if(c==0){
+            char c = name_buf[j];
+            if(c == '/' || c == 0){
+                part[pi] = 0;
+                if(c == 0){
                     fs_entry* f = fs_create_file(dir, part);
                     if(f){
-                        f->lba = cur_lba;
-                        f->size = embedded_resources[i].size;
-                        f->content = (char*)embedded_resources[i].data;
-                        f->embedded = 1;
+                        f->lba = lba;
+                        f->size = size;
+                        f->embedded = 0;
+                        f->content = NULL;
                     }
-                    cur_lba += (embedded_resources[i].size + 511)/512;
                     break;
-                }else{
+                } else {
                     fs_entry* sub = fs_find_subdir(dir, part);
                     if(!sub)
                         sub = fs_create_dir(dir, part);
                     dir = sub;
                     pi = 0;
                 }
-            }else if(pi < 31){
+            } else if(pi < 31){
                 part[pi++] = c;
             }
         }

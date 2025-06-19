@@ -78,8 +78,9 @@ under `/resources`. Subdirectories are included as well. Even if no
 resource files are present the `/resources` directory will still be
 created so it is always available from within the OS.
 
-The build script copies this directory to the root of the ISO so any
-files placed there appear under `/resources` when the system boots.
+The build script now stores these files only inside the disk image. They
+are not copied into the ISO itself, so the running system loads them
+from the attached disk image under `/resources`.
 
 `setup_bootloader.py` resolves the resources directory using its own
 location so it can be invoked from any path and still include the files
