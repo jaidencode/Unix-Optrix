@@ -1,6 +1,7 @@
 #include "fs.h"
 #include "mem.h"
 #include "disk.h"
+#include "resources.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -30,6 +31,7 @@ static fs_entry* alloc_entry(const char*name,int is_dir){
     e->content=NULL;
     e->lba=0;
     e->size=0;
+    e->embedded=0;
     return e;
 }
 
@@ -173,6 +175,7 @@ void fs_init(void){
     root_dir.content=NULL;
     root_dir.lba=0;
     root_dir.size=0;
+    root_dir.embedded=0;
 
     for(uint32_t i=0;i<disk_file_count;i++){
         const char* name = disk_files[i].name;
@@ -208,4 +211,6 @@ void fs_init(void){
        and allows users to add files later. */
     if(!fs_find_subdir(&root_dir, "resources"))
         fs_create_dir(&root_dir, "resources");
+
+    resources_embed();
 }

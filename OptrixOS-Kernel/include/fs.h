@@ -10,6 +10,7 @@ typedef struct fs_entry {
     char* content; /* for in-memory files */
     unsigned int lba;  /* starting sector on disk */
     unsigned int size; /* file size in bytes */
+    int embedded; /* 1 if the file was embedded in the kernel */
 } fs_entry;
 
 fs_entry* fs_find_entry(fs_entry* dir, const char* name);

@@ -205,14 +205,21 @@ void terminal_init(void){
     fs_init();
 
     fs_entry* res = fs_find_path("resources");
-    if(res && res->is_dir)
+    if(res && res->is_dir){
         print("resources directory ready\n");
-    else
+        for(fs_entry*f=res->child;f;f=f->sibling){
+            print("  ");
+            print(f->name);
+            print(f->embedded?" [embedded]\n":" [disk]\n");
+        }
+    }else{
         print("resources directory missing\n");
+    }
 
     current_dir=fs_get_root();
     fs_entry* hello = fs_find_path("resources/hello.txt");
     if(hello){
+        print("Contents of hello.txt:\n");
         print(fs_read_file(hello));
         put_char('\n');
     }
