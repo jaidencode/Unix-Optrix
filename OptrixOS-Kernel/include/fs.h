@@ -24,6 +24,9 @@ void fs_write_file(fs_entry* file, const char* text);
 /* Read the content of a file entry. Returns empty string for directories */
 const char* fs_read_file(fs_entry* file);
 
+/* Write buffered file data back to disk */
+void fs_save_file(fs_entry* file);
+
 void fs_init(void);
 fs_entry* fs_get_root(void);
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name);

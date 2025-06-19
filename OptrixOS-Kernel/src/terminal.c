@@ -87,6 +87,7 @@ static void cmd_mkdir(const char*);
 static void cmd_rmdir(const char*);
 static void cmd_mv(const char*);
 static void cmd_cp(const char*);
+static void cmd_sync(const char*);
 static void cmd_rand(void);
 static void cmd_date(void);
 static void cmd_uptime(void);
@@ -108,7 +109,7 @@ static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b) return 0;a+
 static int strprefix(const char*s,const char*p){while(*p){if(*s!=*p) return 0;s++;p++;}return 1;}
 
 static void cmd_help(void){
-    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp rand date uptime ver whoami banner shutdown\n");
+    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp sync rand date uptime ver whoami banner shutdown\n");
 }
 
 static void cmd_clear(void){screen_clear(); row=col=0;}
@@ -158,6 +159,7 @@ static void cmd_mv(const char*args){
     }else print("No file\n");
 }
 static void cmd_cp(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_find_entry(current_dir,src);if(!f||f->is_dir){print("No file\n");return;}fs_entry*d=fs_find_entry(current_dir,dst);if(!d)d=fs_create_file(current_dir,dst);if(d&&!d->is_dir){fs_write_file(d,fs_read_file(f));print("Copied\n");}else print("Fail\n");}
+static void cmd_sync(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir&&f->content&&f->lba){fs_save_file(f);print("Synced\n");}else print("No file\n");}
 static void cmd_date(void){print("Build: " __DATE__ " " __TIME__ "\n");}
 static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
 static void cmd_shutdown(void){print("Shutdown\n");while(1){__asm__("hlt");}}
@@ -185,6 +187,7 @@ static void execute(const char*line){
     else if(strprefix(line,"mkdir ")) cmd_mkdir(line+6);
     else if(strprefix(line,"rmdir ")) cmd_rmdir(line+6);
     else if(strprefix(line,"cp ")) cmd_cp(line+3);
+    else if(strprefix(line,"sync ")) cmd_sync(line+5);
     else if(streq(line,"rand")) cmd_rand();
     else if(streq(line,"date")||streq(line,"time")) cmd_date();
     else if(streq(line,"uptime")) cmd_uptime();
