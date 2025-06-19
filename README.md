@@ -82,6 +82,11 @@ The build script now stores these files only inside the disk image. They
 are not copied into the ISO itself, so the running system loads them
 from the attached disk image under `/resources`.
 
+The repository includes a file `resources/verification.bin` which is
+written to the disk image.  During boot the kernel checks this file and
+prints `verification.bin: TRUE` if it was found and its contents match the
+expected string `VERIFICATION_OK`.
+
 `setup_bootloader.py` resolves the resources directory using its own
 location so it can be invoked from any path and still include the files
 correctly.

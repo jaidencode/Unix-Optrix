@@ -170,6 +170,23 @@ static void cmd_banner(void){
     if(f){print(fs_read_file(f));put_char('\n');}
 }
 
+/* Verify presence and contents of verification.bin */
+static void check_verification(void){
+    const char *expected = "VERIFICATION_OK";
+    fs_entry *f = fs_find_path("resources/verification.bin");
+    if(f && !f->is_dir){
+        const char *data = fs_read_file(f);
+        int ok = 1;
+        for(int i=0; expected[i]; i++){
+            if(data[i] != expected[i]){ ok = 0; break; }
+        }
+        print("verification.bin: ");
+        print(ok?"TRUE\n":"FALSE\n");
+    } else {
+        print("verification.bin: FALSE\n");
+    }
+}
+
 static void execute(const char*line){
     if(streq(line,"help")) cmd_help();
     else if(streq(line,"clear")||streq(line,"cls")) cmd_clear();
@@ -219,8 +236,10 @@ void terminal_init(void){
             print(f->name);
             print(f->embedded?" [embedded]\n":" [disk]\n");
         }
+        check_verification();
     }else{
         print("resources directory missing\n");
+        print("verification.bin: FALSE\n");
     }
 
     current_dir=fs_get_root();
