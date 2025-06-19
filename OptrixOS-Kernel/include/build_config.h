@@ -1,0 +1,5 @@
+#ifndef BUILD_CONFIG_H
+#define BUILD_CONFIG_H
+#define KERNEL_SECTORS 25
+#define FS_START_SECTOR 26
+#endif

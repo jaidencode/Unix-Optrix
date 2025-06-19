@@ -8,6 +8,8 @@ typedef struct fs_entry {
     struct fs_entry* child;
     struct fs_entry* sibling;
     char* content;
+    unsigned int disk_offset;
+    unsigned int disk_size;
 } fs_entry;
 
 fs_entry* fs_find_entry(fs_entry* dir, const char* name);
