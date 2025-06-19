@@ -202,4 +202,10 @@ void fs_init(void){
             }
         }
     }
+
+    /* Ensure the resources directory exists even if no files were
+       embedded. This prevents the shell from reporting it missing
+       and allows users to add files later. */
+    if(!fs_find_subdir(&root_dir, "resources"))
+        fs_create_dir(&root_dir, "resources");
 }
