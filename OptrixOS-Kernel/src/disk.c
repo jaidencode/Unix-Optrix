@@ -1,6 +1,5 @@
 #include "disk.h"
 #include "ports.h"
-#include <stdint.h>
 
 #define ATA_STATUS_REG 7
 #define ATA_SECTOR_COUNT 2
@@ -12,9 +11,6 @@
 #define ATA_DATA 0
 
 static uint16_t ata_io_base = 0x1F0;
-void ata_set_base(uint16_t base){
-    ata_io_base = base;
-}
 #define ATA_REG(r) (ata_io_base + (r))
 #define ATA_STATUS ATA_REG(ATA_STATUS_REG)
 #define ATA_CMD_READ_PIO 0x20
