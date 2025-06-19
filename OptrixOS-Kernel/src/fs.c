@@ -1,6 +1,7 @@
 #include "fs.h"
 #include "mem.h"
 #include "resources.h"
+#include "ata.h"
 #include <stddef.h>
 
 static fs_entry root_dir;
@@ -110,4 +111,12 @@ void fs_init(void){
         fs_entry* f=fs_create_file(resources,resource_files[i].name);
         if(f) fs_write_file(f,resource_files[i].data);
     }
+}
+
+void fs_load_sector_file(uint32_t lba, uint8_t sectors, const char* name){
+    char* buf = mem_alloc(sectors * 512);
+    if(!buf) return;
+    if(ata_read_sectors(lba, sectors, buf) != 0) return;
+    fs_entry* f = fs_create_file(&root_dir, name);
+    if(f) fs_write_file(f, buf);
 }

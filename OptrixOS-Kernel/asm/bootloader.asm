@@ -12,6 +12,8 @@ start:
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
+    ; store BIOS-provided boot drive number
+    mov [BOOT_DRIVE], dl
 
     ; Set 80x25 text mode
     mov ax, 0x0003
