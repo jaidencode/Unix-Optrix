@@ -1,6 +1,7 @@
 #include "fs.h"
 #include "mem.h"
 #include "disk.h"
+#include "embedded_resources.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -127,7 +128,6 @@ const char* fs_read_file(fs_entry* file){
     uint32_t sectors = (file->size + 511) / 512;
     char* buf = mem_alloc(sectors*512 + 1);
     if(!buf) return "";
-    ata_select_drive(1);
     for(uint32_t i=0;i<sectors;i++)
         ata_read_sector(file->lba + i, buf + i*512);
     buf[file->size] = 0;
@@ -138,7 +138,6 @@ void fs_save_file(fs_entry* file){
     if(!file || file->is_dir || file->lba==0 || !file->content)
         return;
     uint32_t sectors = (file->size + 511) / 512;
-    ata_select_drive(1);
     for(uint32_t i=0;i<sectors;i++)
         ata_write_sector(file->lba + i, file->content + i*512);
 }
@@ -161,60 +160,61 @@ void fs_init(void){
        kernel sizes.  This keeps the in-memory filesystem layout consistent
        with the values used by the bootloader and build script.
     */
-    /* Read root table from the second drive which stores external resources */
-    ata_select_drive(1);
-    uint32_t entry_count = 0;
     uint32_t root_sectors = 0;
+    uint32_t kernel_sectors = 0;
     {
         unsigned char buf[512];
         ata_read_sector(1, buf);
-        entry_count = ((uint32_t*)buf)[0];
-        root_sectors = ((uint32_t*)buf)[1];
+        root_sectors   = ((uint32_t*)buf)[1];
+        kernel_sectors = ((uint32_t*)buf)[2];
     }
-    if(entry_count && root_sectors){
-        unsigned char* full = mem_alloc(root_sectors * 512);
-        if(full){
-            for(uint32_t i=0;i<root_sectors;i++)
-                ata_read_sector(1 + i, full + i*512);
-            unsigned char* table = full + 12; /* skip header */
-            for(uint32_t i=0;i<entry_count;i++){
-                char name[33];
-                for(int j=0;j<32;j++) name[j] = table[i*40 + j];
-                name[32]=0;
-                uint32_t lba = *(uint32_t*)(table + i*40 + 32);
-                uint32_t size = *(uint32_t*)(table + i*40 + 36);
-                fs_entry* dir = &root_dir;
-                char part[32];
-                size_t pi=0;
-                for(size_t j=0;;j++){
-                    char c = name[j];
-                    if(c=='/' || c==0){
-                        part[pi]=0;
-                        if(c==0){
-                            fs_entry* f = fs_create_file(dir, part);
-                            if(f){
-                                f->lba = lba;
-                                f->size = size;
-                                f->content = NULL;
-                                f->embedded = 0;
-                            }
-                            break;
-                        }else{
-                            fs_entry* sub = fs_find_subdir(dir, part);
-                            if(!sub)
-                                sub = fs_create_dir(dir, part);
-                            dir = sub;
-                            pi = 0;
-                        }
-                    }else if(pi < 31){
-                        part[pi++] = c;
+    /* Fallback to calculated values if the header looked empty */
+    if(root_sectors == 0 || kernel_sectors == 0){
+        uint32_t kernel_bytes = (uint32_t)&end - 0x1000;
+        kernel_sectors = (kernel_bytes + 511) / 512;
+        uint32_t entry_bytes = EMBEDDED_RESOURCE_COUNT * (32 + 4 + 4);
+        uint32_t table_bytes = 12 + entry_bytes;
+        root_sectors = (table_bytes + 511) / 512;
+    }
+
+    uint32_t cur_lba = 1 + root_sectors + kernel_sectors;
+
+    for(uint32_t i=0;i<EMBEDDED_RESOURCE_COUNT;i++){
+        const char* name = embedded_resources[i].name;
+        fs_entry* dir = &root_dir;
+        char part[32];
+        size_t pi=0;
+        for(size_t j=0;;j++){
+            char c = name[j];
+            if(c=='/' || c==0){
+                part[pi]=0;
+                if(c==0){
+                    fs_entry* f = fs_create_file(dir, part);
+                    if(f){
+                        f->lba = cur_lba;
+                        f->size = embedded_resources[i].size;
+                        f->content = (char*)embedded_resources[i].data;
+                        f->embedded = 1;
                     }
+                    cur_lba += (embedded_resources[i].size + 511)/512;
+                    break;
+                }else{
+                    fs_entry* sub = fs_find_subdir(dir, part);
+                    if(!sub)
+                        sub = fs_create_dir(dir, part);
+                    dir = sub;
+                    pi = 0;
                 }
+            }else if(pi < 31){
+                part[pi++] = c;
             }
         }
     }
 
-    /* Ensure resources directory exists */
+    /* Ensure the resources directory exists even if no files were
+       embedded. This prevents the shell from reporting it missing
+       and allows users to add files later. */
     if(!fs_find_subdir(&root_dir, "resources"))
         fs_create_dir(&root_dir, "resources");
+
 }
