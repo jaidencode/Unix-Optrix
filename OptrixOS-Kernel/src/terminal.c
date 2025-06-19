@@ -176,6 +176,14 @@ static void cmd_debug(void){
     print("Memory total: ");print_int(mem_total());print("\n");
     print("Memory used:  ");print_int(mem_used());print("\n");
     print("Memory free:  ");print_int(mem_free());print("\n");
+    print("Drive type:   ");
+    if(ata_is_ssd())
+        print("SSD\n");
+    else
+        print(ssd_is_present()?"ATA\n":"None\n");
+    print("Root entries: ");
+    print_int(fs_count_entries(fs_get_root()));
+    print("\n");
 }
 
 /* Verify presence and contents of verification.bin */
@@ -251,6 +259,9 @@ void terminal_init(void){
             print(f->name);
             print(f->embedded?" [embedded]\n":" [disk]\n");
         }
+        print("Total resources: ");
+        print_int(fs_count_entries(res));
+        print("\n");
         check_verification();
     }else{
         print("resources directory missing\n");
