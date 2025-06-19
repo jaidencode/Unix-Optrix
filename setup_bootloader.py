@@ -316,22 +316,14 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         sys.exit(1)
     if os.path.exists(iso_out):
         os.remove(iso_out)
-    disk_path = os.path.join(tmp_iso_dir, "disk.img")
-    disk_size = os.path.getsize(disk_path) if os.path.exists(disk_path) else 0
-    floppy_sizes = {
-        1200 * 1024,  # 1.2MB
-        1440 * 1024,  # 1.44MB
-        2880 * 1024   # 2.88MB
-    }
-
-    cmd = [MKISOFS_EXE, "-quiet", "-o", iso_out]
-    if disk_size in floppy_sizes:
-        cmd += ["-b", "disk.img"]
-    else:
-        # Larger images cannot be used with floppy emulation. Fall back to
-        # no emulation mode which allows arbitrary sizes.
-        cmd += ["-b", "disk.img", "-no-emul-boot", "-boot-load-size", "4"]
-    cmd += ["-R", "-J", "-l", tmp_iso_dir]
+    cmd = [
+        MKISOFS_EXE,
+        "-quiet",
+        "-o", iso_out,
+        "-b", "disk.img",
+        "-R", "-J", "-l",
+        tmp_iso_dir
+    ]
     run(cmd)
     # Forcibly copy ISO to script's dir if not already there
     script_dir = os.path.dirname(os.path.abspath(__file__))
