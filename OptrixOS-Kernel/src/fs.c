@@ -153,10 +153,31 @@ void fs_init(void){
     root_dir.size=0;
 
     for(uint32_t i=0;i<disk_file_count;i++){
-        fs_entry* f=fs_create_file(&root_dir, disk_files[i].name);
-        if(f){
-            f->lba=disk_files[i].lba;
-            f->size=disk_files[i].size;
+        const char* name = disk_files[i].name;
+        fs_entry* dir = &root_dir;
+        char part[32];
+        size_t pi=0;
+        for(size_t j=0;;j++){
+            char c = name[j];
+            if(c=='/' || c==0){
+                part[pi]=0;
+                if(c==0){
+                    fs_entry* f = fs_create_file(dir, part);
+                    if(f){
+                        f->lba = disk_files[i].lba;
+                        f->size = disk_files[i].size;
+                    }
+                    break;
+                }else{
+                    fs_entry* sub = fs_find_subdir(dir, part);
+                    if(!sub)
+                        sub = fs_create_dir(dir, part);
+                    dir = sub;
+                    pi = 0;
+                }
+            }else if(pi < 31){
+                part[pi++] = c;
+            }
         }
     }
 }
