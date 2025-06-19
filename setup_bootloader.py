@@ -3,6 +3,7 @@ import sys
 import os
 import shutil
 import stat
+import struct
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -35,7 +36,8 @@ KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
-DISK_IMG = "disk.img"
+BOOT_IMG = "boot.img"
+DATA_IMG = "hdd.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 
@@ -113,6 +115,36 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
 
+def create_data_disk(res_dir, out_img):
+    print("Building data disk image...")
+    entries = []
+    sector = 2  # start after root table
+    data = b''
+    for fname in sorted(os.listdir(res_dir)):
+        path = os.path.join(res_dir, fname)
+        if not os.path.isfile(path):
+            continue
+        with open(path, 'rb') as f:
+            content = f.read()
+        size = len(content)
+        num = roundup(size, 512) // 512
+        name_bytes = fname.encode('ascii')[:15]
+        name_bytes = name_bytes.ljust(16, b'\0')
+        entries.append((name_bytes, sector, size))
+        if len(content) % 512:
+            content += b'\0' * (512 - len(content)%512)
+        data += content
+        sector += num
+    root = struct.pack('<I', len(entries))
+    for name, lba, size in entries:
+        root += struct.pack('<16sII', name, lba, size)
+    root += b'\0' * (512 - len(root))
+    with open(out_img, 'wb') as img:
+        img.write(b'\0' * 512)
+        img.write(root)
+        img.write(data)
+    tmp_files.append(out_img)
+
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
     skip_dirs = {'.git', '_iso_tmp', '_build_obj', '__pycache__'}
@@ -131,35 +163,10 @@ def collect_source_files(rootdir):
 # === BINARY RESOURCE EMBEDDING LOGIC ===
 # No binary resources for the text mode build
 RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
-GENERATED_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "resources.c")
-GENERATED_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "resources.h")
-resource_bin_files = []
 
 def generate_resource_files():
-    if not os.path.isdir(RESOURCE_DIR):
-        return
-    entries = []
-    for root, _, files in os.walk(RESOURCE_DIR):
-        for f in files:
-            path = os.path.join(root, f)
-            rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-            with open(path, "r", errors="ignore") as fh:
-                data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-            entries.append((rel, data))
-    with open(GENERATED_H, "w") as h:
-        h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
-        h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
-        h.write("extern const int resource_files_count;\n")
-        h.write("extern const resource_file resource_files[];\n")
-        h.write("#endif\n")
-    with open(GENERATED_C, "w") as c:
-        c.write('#include "resources.h"\n')
-        c.write("const resource_file resource_files[] = {\n")
-        for name, data in entries:
-            c.write(f'    {{"{name}", "{data}"}},\n')
-        c.write("};\n")
-        c.write(f"const int resource_files_count = {len(entries)};\n")
-    return GENERATED_C
+    # Resource embedding disabled; files will be placed on the data disk instead
+    return None
 
 def objcopy_binary(input_path, output_obj):
     if not os.path.exists(input_path):
@@ -248,9 +255,11 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
     shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
 
-    # Place disk image at ISO root
-    if os.path.exists(DISK_IMG):
-        shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
+    # Place disk images at ISO root
+    if os.path.exists(BOOT_IMG):
+        shutil.copy(BOOT_IMG, os.path.join(tmp_iso_dir, BOOT_IMG))
+    if os.path.exists(DATA_IMG):
+        shutil.copy(DATA_IMG, os.path.join(tmp_iso_dir, DATA_IMG))
 
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
@@ -265,7 +274,7 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", "disk.img",
+        "-b", BOOT_IMG,
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
@@ -302,13 +311,11 @@ def main():
         print('Disk driver source detected')
     else:
         print('Warning: disk.c not found, disk driver missing')
-    res_c = generate_resource_files()
-    if res_c and res_c not in c_files:
-        c_files.append(res_c)
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    make_dynamic_img(boot_bin, kernel_bin, BOOT_IMG)
+    create_data_disk(RESOURCE_DIR, DATA_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 

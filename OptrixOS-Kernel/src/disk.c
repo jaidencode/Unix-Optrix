@@ -10,8 +10,14 @@
 #define ATA_COMMAND 7
 #define ATA_DATA 0
 
+#include <stdint.h>
+
 static uint16_t ata_io_base = 0x1F0;
 #define ATA_REG(r) (ata_io_base + (r))
+
+void ata_set_base(uint16_t base){
+    ata_io_base = base;
+}
 #define ATA_STATUS ATA_REG(ATA_STATUS_REG)
 #define ATA_CMD_READ_PIO 0x20
 #define ATA_CMD_WRITE_PIO 0x30
