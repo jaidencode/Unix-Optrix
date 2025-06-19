@@ -94,23 +94,58 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
-    print("Creating dynamically-sized disk image...")
+def make_disk_with_resources(boot_bin, kernel_bin, img_out):
+    print("Creating disk image with embedded resources...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
+    kern_pad = roundup(len(kern), 512)
+    kernel_padded = kern + b"\0" * (kern_pad - len(kern))
+    kernel_sectors = kern_pad // 512
+
+    resources = []
+    if os.path.isdir(RESOURCE_DIR):
+        for name in sorted(os.listdir(RESOURCE_DIR)):
+            path = os.path.join(RESOURCE_DIR, name)
+            if not os.path.isfile(path):
+                continue
+            with open(path, "rb") as fh:
+                data = fh.read()
+            if len(data) > 512:
+                print(f"Warning: truncating {name} to 512 bytes")
+                data = data[:512]
+            data += b"\0" * (512 - len(data))
+            lba = 2 + kernel_sectors + len(resources)
+            resources.append((name, lba, len(data.rstrip(b"\0")), data))
+
+    import struct
+    root = struct.pack("<I", len(resources))
+    for name, lba, size, _ in resources:
+        nb = name.encode("ascii", errors="ignore")[:15]
+        nb += b"\0" * (16 - len(nb))
+        root += struct.pack("<16sII", nb, lba, size)
+    if len(root) > 512:
+        root = root[:512]
+    else:
+        root += b"\0" * (512 - len(root))
+
+    total = 512 + 512 + len(kernel_padded) + 512 * len(resources)
     min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size
+
     with open(img_out, "wb") as img:
         img.write(boot)
-        img.write(kern)
-        img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+        img.write(root)
+        img.write(kernel_padded)
+        for _, _, _, data in resources:
+            img.write(data)
+        img.write(b"\0" * (img_size - (512 + 512 + len(kernel_padded) + 512 * len(resources))))
+
+    print(f"Disk image ({img_size // 1024} KB) created with {len(resources)} resource(s).")
     tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
@@ -295,20 +330,18 @@ def cleanup():
 def main():
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
-    # Exclude the old scheduler from builds
-    c_files = [f for f in c_files if not f.endswith('scheduler.c')]
+    # Exclude files that should not be compiled directly
+    c_files = [f for f in c_files if not f.endswith('scheduler.c') and not f.endswith('resources.c')]
     # Ensure disk driver source is present
     if any(f.endswith('disk.c') for f in c_files):
         print('Disk driver source detected')
     else:
         print('Warning: disk.c not found, disk driver missing')
-    res_c = generate_resource_files()
-    if res_c and res_c not in c_files:
-        c_files.append(res_c)
+    # Do not generate resources.c; files will be placed on disk image instead
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
