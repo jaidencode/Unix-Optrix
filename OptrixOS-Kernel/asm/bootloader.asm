@@ -33,12 +33,12 @@ start:
 .doneprint:
 
     ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
+    ; Use BIOS extended read to support kernels larger than one track
+    mov ax, cs
+    mov ds, ax
+    mov si, disk_packet
     mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    mov ah, 0x42      ; extended read
     int 0x13
 
     ; setup basic GDT for protected mode
@@ -81,6 +81,15 @@ gdt_desc:
 BOOT_DRIVE: db 0
 
 bootmsg: db 'Loading OptrixOS...',0
+
+; Disk address packet for extended read
+disk_packet:
+    db 0x10       ; size of packet
+    db 0          ; reserved
+    dw KERNEL_SECTORS
+    dw 0x1000     ; offset
+    dw 0x0000     ; segment
+    dq 1          ; LBA of kernel (sector 1)
 
     ; boot signature
     times 510-($-$$) db 0
