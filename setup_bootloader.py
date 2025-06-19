@@ -116,7 +116,8 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
             size = len(data)
             pad = roundup(size, 512)
             data += b"\0" * (pad - size)
-            resources.append({"name": name, "data": data, "size": size})
+            disk_name = f"resources/{name}"
+            resources.append({"name": disk_name, "data": data, "size": size})
 
     import struct
     ENTRY_STRUCT = "<32sII"
