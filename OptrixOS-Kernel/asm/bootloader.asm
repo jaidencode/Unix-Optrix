@@ -30,14 +30,13 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
-    mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
-    int 0x13
+    ; copy kernel that is appended right after this boot sector
+    mov si, 0x7C00 + 512
+    mov di, 0x1000
+    mov cx, KERNEL_SECTORS
+    shl cx, 8         ; 512 bytes = 256 words per sector
+    cld
+    rep movsw
 
     ; setup basic GDT for protected mode
     lgdt [gdt_desc]
