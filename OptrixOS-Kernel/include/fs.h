@@ -25,4 +25,10 @@ void fs_init(void);
 fs_entry* fs_get_root(void);
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name);
 
+/* load filesystem from disk image */
+void fs_load_from_disk(void);
+
+/* save filesystem to disk image */
+void fs_save_to_disk(void);
+
 #endif
