@@ -289,6 +289,14 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
     shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
 
+    # Expose the resources directory directly at the ISO root so
+    # that it can be accessed easily from the running system.
+    src_resources = os.path.join(proj_root, "resources")
+    if os.path.isdir(src_resources):
+        dst_resources = os.path.join(tmp_iso_dir, "resources")
+        shutil.copytree(src_resources, dst_resources,
+                        ignore=ignore_git, dirs_exist_ok=True)
+
     # Place disk image at ISO root
     if os.path.exists(DISK_IMG):
         shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
