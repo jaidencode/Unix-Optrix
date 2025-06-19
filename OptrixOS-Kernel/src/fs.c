@@ -92,6 +92,13 @@ fs_entry* fs_find_path(const char* path){
     }
 }
 
+size_t fs_count_entries(fs_entry* dir){
+    size_t c = 0;
+    for(fs_entry*f=dir?dir->child:NULL; f; f=f->sibling)
+        c++;
+    return c;
+}
+
 int fs_delete_entry(fs_entry* dir,const char* name){
     if(!dir || !dir->is_dir)
         return 0;

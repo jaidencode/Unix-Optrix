@@ -28,7 +28,7 @@ if not shutil.which(OBJDUMP):
 CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR") or r"C:\\Program Files (x86)\\cdrtools"
 MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs.exe")
 if not os.path.isfile(MKISOFS_EXE):
-    MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
+    MKISOFS_EXE = shutil.which("mkisofs") or shutil.which("genisoimage") or "mkisofs"
 
 # Only build sources inside the kernel directory
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -318,8 +318,8 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
 def make_iso_with_tree(tmp_iso_dir, iso_out):
     print(f"Creating ISO using: {MKISOFS_EXE}")
     print(f"ISO should be written to: {iso_out}")
-    if not os.path.isfile(MKISOFS_EXE):
-        print(f"Error: mkisofs.exe not found at {MKISOFS_EXE}!")
+    if not shutil.which(MKISOFS_EXE) and not os.path.isfile(MKISOFS_EXE):
+        print(f"Error: mkisofs not found: {MKISOFS_EXE}!")
         sys.exit(1)
     if os.path.exists(iso_out):
         os.remove(iso_out)
