@@ -158,7 +158,17 @@ void fs_init(void){
     uint32_t kernel_bytes = (uint32_t)&end - 0x1000;
     uint32_t kernel_sectors = (kernel_bytes + 511) / 512;
 
-    uint32_t entry_bytes = EMBEDDED_RESOURCE_COUNT * sizeof(embedded_resource);
+    /*
+       The build script writes a small filesystem table directly after the
+       boot sector. Each entry in that table consists of a 32 byte name
+       followed by the file's starting LBA and size (4 bytes each).  The
+       original implementation mistakenly used sizeof(embedded_resource)
+       (8 bytes) when computing the table size which caused the calculated
+       LBAs to be too small.  As a result files were read from incorrect
+       locations and appeared empty.  Use the on-disk entry size (40 bytes)
+       to mirror the layout used when creating the disk image.
+    */
+    uint32_t entry_bytes = EMBEDDED_RESOURCE_COUNT * (32 + 4 + 4);
     uint32_t table_bytes = 12 + entry_bytes;
     uint32_t root_sectors = (table_bytes + 511) / 512;
 
