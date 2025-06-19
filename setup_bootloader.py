@@ -345,7 +345,7 @@ def main():
     print("Collecting all project source files...")
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude files that should not be compiled directly
-    c_files = [f for f in c_files if not f.endswith('scheduler.c') and not f.endswith('resources.c')]
+    c_files = [f for f in c_files if not f.endswith('scheduler.c')]
     # Ensure disk driver source is present
     if any(f.endswith('disk.c') for f in c_files):
         print('Disk driver source detected')
