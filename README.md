@@ -36,11 +36,14 @@ python3 setup_bootloader.py
 ```
 
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
-script outputs `disk.img` which can be run with:
+script outputs `ssd.img` which can be run with:
 
 ```bash
-qemu-system-x86_64 -hda disk.img
+qemu-system-x86_64 -hda ssd.img
 ```
+
+The OS expects this SSD image to be attached at boot so that all resources
+and verification data can be loaded from it.
 
 ## Built-in terminal
 
@@ -73,14 +76,14 @@ The following commands are implemented:
 
 
 ### Resources
-Files inside `OptrixOS-Kernel/resources` are packed onto the disk image
-under `/resources`. Subdirectories are included as well. Even if no
+Files inside `OptrixOS-Kernel/resources` are packed onto the SSD disk image
+`ssd.img` under `/resources`. Subdirectories are included as well. Even if no
 resource files are present the `/resources` directory will still be
 created so it is always available from within the OS.
 
-The build script now stores these files only inside the disk image. They
+The build script now stores these files only inside the SSD image. They
 are not copied into the ISO itself, so the running system loads them
-from the attached disk image under `/resources`.
+from the attached SSD image under `/resources`.
 
 The repository includes a file `resources/verification.bin` which is
 written to the disk image.  During boot the kernel checks this file and
