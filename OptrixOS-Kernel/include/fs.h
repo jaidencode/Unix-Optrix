@@ -1,5 +1,6 @@
 #ifndef FS_H
 #define FS_H
+#include <stdint.h>
 
 typedef struct fs_entry {
     char* name;
@@ -24,5 +25,6 @@ const char* fs_read_file(fs_entry* file);
 void fs_init(void);
 fs_entry* fs_get_root(void);
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name);
+void fs_load_sector_file(uint32_t lba, uint8_t sectors, const char* name);
 
 #endif

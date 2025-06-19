@@ -103,10 +103,8 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     kern = open(kernel_bin, "rb").read()
     total = 512 + len(kern)
     min_size = 1474560  # 1.44MB
-    # mkisofs requires the boot image size to be a multiple of 2048 bytes when
-    # using -no-emul-boot.  Round the disk image up to 2048 bytes to avoid
-    # "boot image has not an allowable size" errors.
-    img_size = roundup(total, 2048)
+    # Round to 512 byte sectors for floppy emulation
+    img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size
     with open(img_out, "wb") as img:
@@ -269,13 +267,6 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         "-quiet",
         "-o", iso_out,
         "-b", "disk.img",
-        "-no-emul-boot",
-        # boot-load-size is specified in 512 byte sectors, but needs to be a
-        # multiple of 4 (2048 bytes). Round up accordingly so mkisofs accepts
-        # the image size.
-        "-boot-load-size",
-        str(roundup(os.path.getsize(os.path.join(tmp_iso_dir, "disk.img")), 2048) // 512),
-        "-boot-info-table",
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
