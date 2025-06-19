@@ -4,6 +4,7 @@
 #include "fs.h"
 #include "disk.h"
 #include "mem.h"
+#include "resources_test.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -203,6 +204,9 @@ void terminal_init(void){
         print("No ATA drive found\n");
 
     fs_init();
+
+    /* Debug: list all files embedded from the resources directory */
+    resources_test();
 
     fs_entry* res = fs_find_path("resources");
     if(res && res->is_dir){
