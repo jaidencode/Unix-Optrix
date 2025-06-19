@@ -36,6 +36,9 @@ python3 setup_bootloader.py
 ```
 
 Running `python3 setup_bootloader.py` now produces `OptrixOS.iso` directly.
+The script creates a `boot.img` containing the bootloader and kernel, which is
+used as the El Torito boot image so the loader can read the kernel from
+contiguous sectors.
 During the build a `filesystem.bit` image is generated from the contents of
 `OptrixOS-Kernel/resources` and linked into the kernel. No disk image is
 created and the OS accesses files from this embedded binary rather than

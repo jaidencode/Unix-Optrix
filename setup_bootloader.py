@@ -243,7 +243,15 @@ def build_kernel(asm_files, c_files, out_bin, extra_objs=None):
     boot_bin = "bootloader.bin"
     assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
 
-    return boot_bin, out_bin
+    # Create a boot image containing the bootloader followed by the kernel so
+    # the bootloader can load the kernel using simple sector reads.
+    boot_img = "boot.img"
+    with open(boot_img, "wb") as bi, open(boot_bin, "rb") as bb, open(out_bin, "rb") as kb:
+        bi.write(bb.read())
+        bi.write(kb.read())
+    tmp_files.append(boot_img)
+
+    return boot_bin, out_bin, boot_img
 
 def on_rm_error(func, path, exc_info):
     # Make file writable and retry (Windows-safe)
@@ -274,11 +282,11 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     if os.path.isdir(res_src):
         shutil.copytree(res_src, os.path.join(tmp_iso_dir, "resources"), dirs_exist_ok=True)
 
-    # Copy filesystem binary and bootloader
+    # Copy filesystem binary and boot image
     if os.path.exists(FILESYSTEM_BIN):
         shutil.copy(FILESYSTEM_BIN, os.path.join(tmp_iso_dir, FILESYSTEM_BIN))
-    if os.path.exists("bootloader.bin"):
-        shutil.copy("bootloader.bin", os.path.join(tmp_iso_dir, "bootloader.bin"))
+    if os.path.exists("boot.img"):
+        shutil.copy("boot.img", os.path.join(tmp_iso_dir, "boot.img"))
 
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
@@ -293,7 +301,7 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", "bootloader.bin",
+        "-b", "boot.img",
         "-no-emul-boot",
         "-R", "-J", "-l",
         tmp_iso_dir
@@ -343,7 +351,7 @@ def main():
     fs_obj = os.path.join(OBJ_DIR, 'filesystem.o')
     objcopy_binary(fs_bin, fs_obj)
 
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN, extra_objs=[fs_obj])
+    boot_bin, kernel_bin, boot_img = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN, extra_objs=[fs_obj])
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
