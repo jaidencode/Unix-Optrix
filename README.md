@@ -19,7 +19,9 @@ Use `python3 setup_bootloader.py` to assemble and link the boot files. The
 script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
 `OptrixOS-kernel.bin`. A cross compiler (`i686-linux-gnu-gcc`/`ld`) is preferred,
 but if it is not installed the script will fall back to the system `gcc` and
-`ld` with `-m32`.
+`ld` with `-m32`. The build script now auto-detects a working linker
+emulation (e.g. `elf_i386` or `i386pe`) so it works on both Linux and
+MinGW toolchains.
 
 
 

@@ -44,6 +44,21 @@ OBJ_DIR = "_build_obj"
 
 tmp_files = []
 
+def detect_ld_emulation(ld_exe):
+    """Return a supported -m emulation option for ld."""
+    try:
+        out = subprocess.run([ld_exe, "--verbose"], capture_output=True, text=True).stdout
+    except Exception:
+        return "elf_i386"
+    if "elf_i386" in out:
+        return "elf_i386"
+    for em in ("i386pe", "i386pep"):
+        if em in out:
+            return em
+    return "elf_i386"
+
+LD_EMULATION = detect_ld_emulation(LD)
+
 def check_file(f):
     if not os.path.isfile(f):
         print(f"Error: Required file not found: {f}")
@@ -195,13 +210,13 @@ def build_kernel(asm_files, c_files, out_bin):
     elf_out = out_bin.replace(".bin", ".elf")
     print(f"Linking kernel ELF: {elf_out}")
     link_cmd_elf = [
-        LD, "-T", linker_script, "-m", "elf_i386", "-nostdlib"
+        LD, "-T", linker_script, "-m", LD_EMULATION, "-nostdlib"
     ] + obj_files + ["-o", elf_out]
     run(link_cmd_elf)
     tmp_files.append(elf_out)
     print(f"Converting ELF -> BIN: {elf_out} -> {out_bin}")
     link_cmd_bin = [
-        LD, "-T", linker_script, "-m", "elf_i386", "--oformat", "binary", "-nostdlib"
+        LD, "-T", linker_script, "-m", LD_EMULATION, "--oformat", "binary", "-nostdlib"
     ] + obj_files + ["-o", out_bin]
     run(link_cmd_bin)
     tmp_files.append(out_bin)
