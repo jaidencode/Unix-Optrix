@@ -3,6 +3,7 @@
 #include "screen.h"
 #include "fs.h"
 #include "disk.h"
+#include "ssd.h"
 #include "mem.h"
 #include "resources_test.h"
 #include <stdint.h>
@@ -95,6 +96,7 @@ static void cmd_shutdown(void);
 static void cmd_ver(void);
 static void cmd_whoami(void);
 static void cmd_banner(void);
+static void cmd_debug(void);
 
 static unsigned int uptime = 0;
 static fs_entry* current_dir;
@@ -109,7 +111,7 @@ static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b) return 0;a+
 static int strprefix(const char*s,const char*p){while(*p){if(*s!=*p) return 0;s++;p++;}return 1;}
 
 static void cmd_help(void){
-    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp sync rand date uptime ver whoami banner shutdown\n");
+    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp sync rand date uptime ver whoami banner debug shutdown\n");
 }
 
 static void cmd_clear(void){screen_clear(); row=col=0;}
@@ -170,6 +172,20 @@ static void cmd_banner(void){
     if(f){print(fs_read_file(f));put_char('\n');}
 }
 
+static void cmd_debug(void){
+    print("Memory total: ");print_int(mem_total());print("\n");
+    print("Memory used:  ");print_int(mem_used());print("\n");
+    print("Memory free:  ");print_int(mem_free());print("\n");
+    print("Drive type:   ");
+    if(ata_is_ssd())
+        print("SSD\n");
+    else
+        print(ssd_is_present()?"ATA\n":"None\n");
+    print("Root entries: ");
+    print_int(fs_count_entries(fs_get_root()));
+    print("\n");
+}
+
 /* Verify presence and contents of verification.bin */
 static void check_verification(void){
     const char *expected = "VERIFICATION_OK";
@@ -211,6 +227,7 @@ static void execute(const char*line){
     else if(streq(line,"ver")) cmd_ver();
     else if(streq(line,"whoami")) cmd_whoami();
     else if(streq(line,"banner")) cmd_banner();
+    else if(streq(line,"debug")) cmd_debug();
     else if(streq(line,"shutdown")||streq(line,"exit")) cmd_shutdown();
     else if(line[0]) print("Unknown\n");
 }
@@ -218,15 +235,18 @@ static void execute(const char*line){
 void terminal_init(void){
     screen_clear();
 
-    ata_init();
+    ssd_init();
     if(ata_is_ssd())
         print("SSD drive detected\n");
-    else if(ata_detect())
+    else if(ssd_detect())
         print("ATA drive detected\n");
     else
         print("No ATA drive found\n");
 
     fs_init();
+
+    print("Mem total: "); print_int(mem_total()); print(" bytes\n");
+    print("Mem free:  "); print_int(mem_free());  print(" bytes\n");
 
     /* Debug: list all files embedded from the resources directory */
     resources_test();
@@ -239,6 +259,9 @@ void terminal_init(void){
             print(f->name);
             print(f->embedded?" [embedded]\n":" [disk]\n");
         }
+        print("Total resources: ");
+        print_int(fs_count_entries(res));
+        print("\n");
         check_verification();
     }else{
         print("resources directory missing\n");

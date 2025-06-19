@@ -1,5 +1,6 @@
 #ifndef FS_H
 #define FS_H
+#include <stddef.h>
 
 typedef struct fs_entry {
     char* name;
@@ -32,5 +33,8 @@ fs_entry* fs_get_root(void);
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name);
 /* Convenience: find an entry by absolute path like "dir/file" */
 fs_entry* fs_find_path(const char* path);
+
+/* Count number of direct child entries under a directory */
+size_t fs_count_entries(fs_entry* dir);
 
 #endif
