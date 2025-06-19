@@ -3,6 +3,7 @@ import sys
 import os
 import shutil
 import stat
+import struct
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -101,16 +102,23 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
+    kernel_sectors = roundup(len(kern), 512) // 512
+    resources = gather_resource_paths()
+    root_table, resource_data = build_root_table_and_data(resources, kernel_sectors)
+    kernel_padded = kern.ljust(kernel_sectors * 512, b'\0')
+
+    total = 512 + len(root_table) + len(kernel_padded) + len(resource_data)
     min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size
     with open(img_out, "wb") as img:
         img.write(boot)
-        img.write(kern)
+        img.write(root_table)
+        img.write(kernel_padded)
+        img.write(resource_data)
         img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot+res: {total} bytes).")
     tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
@@ -178,6 +186,37 @@ def objcopy_binary(input_path, output_obj):
         tmp_files.append(output_obj)
     else:
         print(f"Resource already up to date: {output_obj}")
+
+
+MAX_DISK_FILES = 16
+
+def gather_resource_paths():
+    if not os.path.isdir(RESOURCE_DIR):
+        return []
+    files = []
+    for name in sorted(os.listdir(RESOURCE_DIR)):
+        path = os.path.join(RESOURCE_DIR, name)
+        if os.path.isfile(path):
+            files.append(path)
+    return files[:MAX_DISK_FILES]
+
+def build_root_table_and_data(resources, kernel_sectors):
+    lba_start = 2 + kernel_sectors
+    root = struct.pack('<I', len(resources))
+    data_chunks = []
+    lba = lba_start
+    for res in resources:
+        name = os.path.basename(res)[:15]
+        nb = name.encode('ascii', 'replace')
+        nb += b'\0' * (16 - len(nb))
+        size = os.path.getsize(res)
+        root += nb + struct.pack('<II', lba, size)
+        with open(res, 'rb') as f:
+            content = f.read(512)
+        data_chunks.append(content.ljust(512, b'\0'))
+        lba += 1
+    root = root.ljust(512, b'\0')
+    return root, b''.join(data_chunks)
 
 
 def build_kernel(asm_files, c_files, out_bin):
