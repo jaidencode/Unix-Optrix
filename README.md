@@ -42,6 +42,10 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+When the embedded resources cause `disk.img` to grow beyond standard floppy
+sizes, the build script automatically switches the ISO to *no-emulation* mode so
+larger images continue to boot correctly.
+
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
