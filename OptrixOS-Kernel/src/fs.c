@@ -1,7 +1,6 @@
 #include "fs.h"
 #include "mem.h"
 #include "disk.h"
-#include "resources.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -212,5 +211,4 @@ void fs_init(void){
     if(!fs_find_subdir(&root_dir, "resources"))
         fs_create_dir(&root_dir, "resources");
 
-    resources_embed();
 }
