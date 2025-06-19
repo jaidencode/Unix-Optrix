@@ -1,11 +1,15 @@
 #include "fs.h"
 #include "mem.h"
 #include "disk.h"
+
+extern unsigned char _binary_filesystem_bit_start[];
+extern unsigned char _binary_filesystem_bit_end[];
 #include <stddef.h>
 #include <stdint.h>
 
 extern uint32_t end; /* provided by linker */
 static fs_entry root_dir;
+static const unsigned char* fs_data_start = 0;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
 
@@ -131,6 +135,14 @@ const char* fs_read_file(fs_entry* file){
     if(!file||file->is_dir) return "";
     if(file->content)
         return file->content;
+    if(file->embedded){
+        char* buf = mem_alloc(file->size + 1);
+        if(!buf) return "";
+        for(uint32_t i=0;i<file->size;i++)
+            buf[i] = fs_data_start[file->lba + i];
+        buf[file->size] = 0;
+        return buf;
+    }
     uint32_t sectors = (file->size + 511) / 512;
     char* buf = mem_alloc(sectors*512 + 1);
     if(!buf) return "";
@@ -141,7 +153,7 @@ const char* fs_read_file(fs_entry* file){
 }
 
 void fs_save_file(fs_entry* file){
-    if(!file || file->is_dir || file->lba==0 || !file->content)
+    if(!file || file->is_dir || file->lba==0 || !file->content || file->embedded)
         return;
     uint32_t sectors = (file->size + 511) / 512;
     for(uint32_t i=0;i<sectors;i++)
@@ -161,42 +173,24 @@ void fs_init(void){
     root_dir.embedded=0;
 
     /*
-       Read the filesystem header from disk. The header contains the number of
-       resource entries, the size of the root table in sectors and the number of
-       kernel sectors. Following the header is the table of resource metadata
-       describing each file stored on the disk image.
+       Parse the embedded filesystem binary. The file begins with the number of
+       entries followed by a table of name/offset/size triples and finally the
+       raw file data.
     */
-    uint32_t entry_count = 0;
-    uint32_t root_sectors = 0;
-    uint32_t kernel_sectors = 0;
-    unsigned char header[512];
-    ata_read_sector(1, header);
-    entry_count   = ((uint32_t*)header)[0];
-    root_sectors  = ((uint32_t*)header)[1];
-    kernel_sectors = ((uint32_t*)header)[2];
-
-    /* Fallback for older images with missing header information */
-    if(root_sectors == 0 || kernel_sectors == 0){
-        uint32_t kernel_bytes = (uint32_t)&end - 0x1000;
-        kernel_sectors = (kernel_bytes + 511) / 512;
-        root_sectors = (12 + entry_count*(32+4+4) + 511) / 512;
-    }
-
-    /* Read the full root table */
-    size_t table_bytes = root_sectors * 512;
-    unsigned char* table = mem_alloc(table_bytes);
-    if(!table) return;
-    for(uint32_t i=0;i<root_sectors;i++)
-        ata_read_sector(1 + i, table + i*512);
-
-    unsigned char* p = table + 12;
+    const unsigned char* fs_start = _binary_filesystem_bit_start;
+    const unsigned char* fs_end   = _binary_filesystem_bit_end;
+    uint32_t entry_count = *(uint32_t*)fs_start;
+    const unsigned char* p = fs_start + 12;
+    size_t table_bytes = entry_count * (32 + 4 + 4);
+    const unsigned char* data_start = fs_start + 12 + table_bytes;
+    fs_data_start = data_start;
     for(uint32_t i=0;i<entry_count;i++){
         char name_buf[33];
         for(int j=0;j<32;j++)
             name_buf[j] = p[j];
         name_buf[32] = '\0';
-        uint32_t lba = *(uint32_t*)(p + 32);
-        uint32_t size = *(uint32_t*)(p + 36);
+    uint32_t offset = *(uint32_t*)(p + 32);
+    uint32_t size = *(uint32_t*)(p + 36);
         p += 32 + 4 + 4;
 
         fs_entry* dir = &root_dir;
@@ -209,9 +203,9 @@ void fs_init(void){
                 if(c == 0){
                     fs_entry* f = fs_create_file(dir, part);
                     if(f){
-                        f->lba = lba;
+                        f->lba = offset;
                         f->size = size;
-                        f->embedded = 0;
+                        f->embedded = 1;
                         f->content = NULL;
                     }
                     break;
