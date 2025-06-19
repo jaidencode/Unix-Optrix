@@ -7,7 +7,9 @@ typedef struct fs_entry {
     struct fs_entry* parent;
     struct fs_entry* child;
     struct fs_entry* sibling;
-    char* content;
+    char* content; /* for in-memory files */
+    unsigned int lba;  /* starting sector on disk */
+    unsigned int size; /* file size in bytes */
 } fs_entry;
 
 fs_entry* fs_find_entry(fs_entry* dir, const char* name);
