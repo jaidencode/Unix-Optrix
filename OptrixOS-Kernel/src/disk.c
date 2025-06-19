@@ -42,14 +42,14 @@ void ata_init(void){
     ata_wait_bsy();
 }
 
-int ata_read_sector(uint32_t lba, void* buffer){
+int ata_read_sector_drive(uint8_t drive, uint32_t lba, void* buffer){
     uint16_t* buf = (uint16_t*)buffer;
     ata_wait_bsy();
     outb(ATA_REG(ATA_SECTOR_COUNT), 1);
     outb(ATA_REG(ATA_LBA_LOW), (uint8_t)lba);
     outb(ATA_REG(ATA_LBA_MID), (uint8_t)(lba >> 8));
     outb(ATA_REG(ATA_LBA_HIGH), (uint8_t)(lba >> 16));
-    outb(ATA_REG(ATA_DRIVE), 0xE0 | ((lba >> 24) & 0x0F));
+    outb(ATA_REG(ATA_DRIVE), 0xE0 | ((drive & 1) << 4) | ((lba >> 24) & 0x0F));
     outb(ATA_REG(ATA_COMMAND), ATA_CMD_READ_PIO);
     ata_wait_bsy();
     ata_wait_drq();
@@ -58,14 +58,14 @@ int ata_read_sector(uint32_t lba, void* buffer){
     return 0;
 }
 
-int ata_write_sector(uint32_t lba, const void* buffer){
+int ata_write_sector_drive(uint8_t drive, uint32_t lba, const void* buffer){
     const uint16_t* buf = (const uint16_t*)buffer;
     ata_wait_bsy();
     outb(ATA_REG(ATA_SECTOR_COUNT), 1);
     outb(ATA_REG(ATA_LBA_LOW), (uint8_t)lba);
     outb(ATA_REG(ATA_LBA_MID), (uint8_t)(lba >> 8));
     outb(ATA_REG(ATA_LBA_HIGH), (uint8_t)(lba >> 16));
-    outb(ATA_REG(ATA_DRIVE), 0xE0 | ((lba >> 24) & 0x0F));
+    outb(ATA_REG(ATA_DRIVE), 0xE0 | ((drive & 1) << 4) | ((lba >> 24) & 0x0F));
     outb(ATA_REG(ATA_COMMAND), ATA_CMD_WRITE_PIO);
     ata_wait_bsy();
     ata_wait_drq();
@@ -73,4 +73,12 @@ int ata_write_sector(uint32_t lba, const void* buffer){
         outw(ATA_REG(ATA_DATA), buf[i]);
     ata_wait_bsy();
     return 0;
+}
+
+int ata_read_sector(uint32_t lba, void* buffer){
+    return ata_read_sector_drive(0, lba, buffer);
+}
+
+int ata_write_sector(uint32_t lba, const void* buffer){
+    return ata_write_sector_drive(0, lba, buffer);
 }
