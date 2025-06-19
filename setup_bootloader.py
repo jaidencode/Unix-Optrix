@@ -38,6 +38,8 @@ KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
+EMBED_HEADER = os.path.join(KERNEL_PROJECT_ROOT, "include", "embedded_resources.h")
+EMBED_SOURCE = os.path.join(KERNEL_PROJECT_ROOT, "src", "embedded_resources.c")
 
 tmp_files = []
 
@@ -91,10 +93,40 @@ def compile_c(src, out):
     ])
     tmp_files.append(out)
 
+def collect_resources():
+    resources = []
+    if os.path.isdir(RESOURCE_DIR):
+        for root, _, files in os.walk(RESOURCE_DIR):
+            for name in sorted(files):
+                path = os.path.join(root, name)
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
+                resources.append({"name": f"resources/{rel}", "data": data, "size": len(data)})
+    return resources
+
+def generate_embedded_sources(resources):
+    os.makedirs(os.path.dirname(EMBED_HEADER), exist_ok=True)
+    os.makedirs(os.path.dirname(EMBED_SOURCE), exist_ok=True)
+    with open(EMBED_HEADER, "w") as fh:
+        fh.write("#ifndef EMBEDDED_RESOURCES_H\n#define EMBEDDED_RESOURCES_H\n")
+        fh.write("#include <stdint.h>\n\n")
+        fh.write("typedef struct { const char* name; uint32_t size; } embedded_resource;\n")
+        fh.write(f"#define EMBEDDED_RESOURCE_COUNT {len(resources)}\n")
+        fh.write("extern const embedded_resource embedded_resources[EMBEDDED_RESOURCE_COUNT];\n")
+        fh.write("#endif\n")
+    with open(EMBED_SOURCE, "w") as fc:
+        fc.write('#include "embedded_resources.h"\n')
+        fc.write("const embedded_resource embedded_resources[EMBEDDED_RESOURCE_COUNT] = {\n")
+        for r in resources:
+            fc.write(f'    {{"{r["name"]}", {r["size"]}}},\n')
+        fc.write("};\n")
+    tmp_files.extend([EMBED_HEADER, EMBED_SOURCE])
+
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_disk_with_resources(boot_bin, kernel_bin, img_out):
+def make_disk_with_resources(boot_bin, kernel_bin, img_out, resources):
     print("Creating disk image with embedded resources...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
@@ -105,42 +137,37 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
     kernel_padded = kern + b"\0" * (kern_pad - len(kern))
     kernel_sectors = kern_pad // 512
 
-    resources = []
-    if os.path.isdir(RESOURCE_DIR):
-        for root, _, files in os.walk(RESOURCE_DIR):
-            for name in sorted(files):
-                path = os.path.join(root, name)
-                with open(path, "rb") as fh:
-                    data = fh.read()
-                size = len(data)
-                pad = roundup(size, 512)
-                data += b"\0" * (pad - size)
-                rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-                disk_name = f"resources/{rel}"
-                resources.append({"name": disk_name, "data": data, "size": size})
+    res_data = []
+    for r in resources:
+        data = bytearray(r["data"])
+        size = len(data)
+        pad = roundup(size, 512)
+        if pad > size:
+            data.extend(b"\0" * (pad - size))
+        res_data.append({"name": r["name"], "data": bytes(data), "size": size})
 
     import struct
     ENTRY_STRUCT = "<32sII"
     entry_size = struct.calcsize(ENTRY_STRUCT)
 
     root_entries = []
-    root_bytes = 12 + entry_size * len(resources)
+    root_bytes = 12 + entry_size * len(res_data)
     root_sectors = roundup(root_bytes, 512) // 512
 
     kernel_start = 1 + root_sectors
     resource_start = kernel_start + kernel_sectors
     cur_lba = resource_start
-    for res in resources:
+    for res in res_data:
         res["lba"] = cur_lba
         cur_lba += len(res["data"]) // 512
         nb = res["name"].encode("ascii", errors="ignore")[:31]
         nb += b"\0" * (32 - len(nb))
         root_entries.append(struct.pack(ENTRY_STRUCT, nb, res["lba"], res["size"]))
 
-    root = struct.pack("<III", len(resources), root_sectors, kernel_sectors) + b"".join(root_entries)
+    root = struct.pack("<III", len(res_data), root_sectors, kernel_sectors) + b"".join(root_entries)
     root += b"\0" * (root_sectors*512 - len(root))
 
-    total = 512 + root_sectors*512 + len(kernel_padded) + sum(len(r["data"]) for r in resources)
+    total = 512 + root_sectors*512 + len(kernel_padded) + sum(len(r["data"]) for r in res_data)
     min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
     if img_size < min_size:
@@ -150,12 +177,13 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
         img.write(boot)
         img.write(root)
         img.write(kernel_padded)
-        for res in resources:
+        for res in res_data:
             img.write(res["data"])
-        img.write(b"\0" * (img_size - (512 + len(root) + len(kernel_padded) + sum(len(r["data"]) for r in resources))))
+        img.write(b"\0" * (img_size - (512 + len(root) + len(kernel_padded) + sum(len(r["data"]) for r in res_data))))
 
-    print(f"Disk image ({img_size // 1024} KB) created with {len(resources)} resource(s).")
+    print(f"Disk image ({img_size // 1024} KB) created with {len(res_data)} resource(s).")
     tmp_files.append(img_out)
+    return res_data
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
@@ -315,8 +343,10 @@ def cleanup():
 
 def main():
     print("Collecting all project source files...")
+    resources = collect_resources()
+    generate_embedded_sources(resources)
+
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
-    # Exclude files that should not be compiled directly
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
     # Ensure disk driver source is present
     if any(f.endswith('disk.c') for f in c_files):
@@ -327,7 +357,7 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG)
+    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG, resources)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
