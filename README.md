@@ -8,7 +8,7 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Clears a portion of RAM before loading the kernel.
 - Prompts for a kernel path (the input is currently ignored but demonstrates
   the interface).
-- Loads the kernel from the disk image into memory at `0x1000`.
+- Loads the kernel from disk into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
 - Sets the classic 80x25 text mode and jumps directly to the kernel.
@@ -35,15 +35,11 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
-If `mkisofs` or `genisoimage` is available an ISO named `OptrixOS.iso` is created.
-Otherwise the script outputs `ssd.img` which can be run with:
-
-```bash
-qemu-system-x86_64 -hda ssd.img
-```
-
-The OS expects this SSD image to be attached at boot so that all resources
-and verification data can be loaded from it.
+Running `python3 setup_bootloader.py` now produces `OptrixOS.iso` directly.
+During the build a `filesystem.bit` image is generated from the contents of
+`OptrixOS-Kernel/resources` and linked into the kernel. No disk image is
+created and the OS accesses files from this embedded binary rather than
+`ssd.img`.
 
 ## Built-in terminal
 
@@ -77,17 +73,13 @@ The following commands are implemented:
 
 
 ### Resources
-Files inside `OptrixOS-Kernel/resources` are packed onto the SSD disk image
-`ssd.img` under `/resources`. Subdirectories are included as well. Even if no
-resource files are present the `/resources` directory will still be
-created so it is always available from within the OS.
-
-The build script stores these files inside the SSD image and also copies the
-`resources` directory onto the ISO so that the running system can access them
-even without a writable disk image.
+Files inside `OptrixOS-Kernel/resources` are converted into `filesystem.bit`
+during the build. This binary contains the directory tree and file data and is
+linked into the kernel so the files are always available from within the OS
+without attaching a separate disk image.
 
 The repository includes a file `resources/verification.bin` which is
-written to the disk image.  During boot the kernel checks this file and
+included in `filesystem.bit`.  During boot the kernel checks this file and
 prints `verification.bin: TRUE` if it was found and its contents match the
 expected string `VERIFICATION_OK`.
 

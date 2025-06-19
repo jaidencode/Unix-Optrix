@@ -35,7 +35,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 KERNEL_PROJECT_ROOT = os.path.join(SCRIPT_DIR, "OptrixOS-Kernel")
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
-DISK_IMG = "ssd.img"
+FILESYSTEM_BIN = "filesystem.bit"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 EMBED_HEADER = os.path.join(KERNEL_PROJECT_ROOT, "include", "embedded_resources.h")
@@ -141,64 +141,25 @@ def generate_embedded_sources(resources):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_disk_with_resources(boot_bin, kernel_bin, img_out, resources):
-    print("Creating disk image with embedded resources...")
-    boot = open(boot_bin, "rb").read()
-    if len(boot) != 512:
-        print("Error: Bootloader must be exactly 512 bytes!")
-        sys.exit(1)
-    kern = open(kernel_bin, "rb").read()
-    kern_pad = roundup(len(kern), 512)
-    kernel_padded = kern + b"\0" * (kern_pad - len(kern))
-    kernel_sectors = kern_pad // 512
-
-    res_data = []
-    for r in resources:
-        data = bytearray(r["data"])
-        size = len(data)
-        pad = roundup(size, 512)
-        if pad > size:
-            data.extend(b"\0" * (pad - size))
-        res_data.append({"name": r["name"], "data": bytes(data), "size": size})
-
+def make_filesystem_bin(resources, fs_out):
+    print("Creating filesystem binary...")
     import struct
     ENTRY_STRUCT = "<32sII"
-    entry_size = struct.calcsize(ENTRY_STRUCT)
-
-    root_entries = []
-    root_bytes = 12 + entry_size * len(res_data)
-    root_sectors = roundup(root_bytes, 512) // 512
-
-    kernel_start = 1 + root_sectors
-    resource_start = kernel_start + kernel_sectors
-    cur_lba = resource_start
-    for res in res_data:
-        res["lba"] = cur_lba
-        cur_lba += len(res["data"]) // 512
-        nb = res["name"].encode("ascii", errors="ignore")[:31]
-        nb += b"\0" * (32 - len(nb))
-        root_entries.append(struct.pack(ENTRY_STRUCT, nb, res["lba"], res["size"]))
-
-    root = struct.pack("<III", len(res_data), root_sectors, kernel_sectors) + b"".join(root_entries)
-    root += b"\0" * (root_sectors*512 - len(root))
-
-    total = 512 + root_sectors*512 + len(kernel_padded) + sum(len(r["data"]) for r in res_data)
-    min_size = 32 * 1024 * 1024  # 32MB hard disk image
-    img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
-
-    with open(img_out, "wb") as img:
-        img.write(boot)
-        img.write(root)
-        img.write(kernel_padded)
-        for res in res_data:
-            img.write(res["data"])
-        img.write(b"\0" * (img_size - (512 + len(root) + len(kernel_padded) + sum(len(r["data"]) for r in res_data))))
-
-    print(f"Disk image ({img_size // (1024*1024)} MB) created with {len(res_data)} resource(s).")
-    tmp_files.append(img_out)
-    return res_data
+    entries = []
+    data = bytearray()
+    for r in resources:
+        offset = len(data)
+        data.extend(r["data"])
+        name = r["name"].encode("ascii", errors="ignore")[:31]
+        name += b"\0" * (32 - len(name))
+        entries.append(struct.pack(ENTRY_STRUCT, name, offset, r["size"]))
+    header = struct.pack("<III", len(entries), 0, 0) + b"".join(entries)
+    with open(fs_out, "wb") as fh:
+        fh.write(header)
+        fh.write(data)
+    print(f"filesystem.bit created with {len(entries)} entries")
+    tmp_files.append(fs_out)
+    return fs_out
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
@@ -239,9 +200,9 @@ def objcopy_binary(input_path, output_obj):
         print(f"Resource already up to date: {output_obj}")
 
 
-def build_kernel(asm_files, c_files, out_bin):
+def build_kernel(asm_files, c_files, out_bin, extra_objs=None):
     ensure_obj_dir()
-    obj_files = []
+    obj_files = list(extra_objs) if extra_objs else []
     bootloader_src = None
 
     for asm in asm_files:
@@ -276,8 +237,11 @@ def build_kernel(asm_files, c_files, out_bin):
     run(link_cmd_bin)
     tmp_files.append(out_bin)
 
+    k_bytes = os.path.getsize(out_bin)
+    sectors = (k_bytes + 511) // 512
+
     boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin")
+    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
 
     return boot_bin, out_bin
 
@@ -294,7 +258,7 @@ def ignore_git(dir, files):
     return [f for f in files if f == ".git" or f.startswith('.')]
 
 def copy_tree_to_iso(tmp_iso_dir, proj_root):
-    """Create the ISO file tree with only the kernel folder and disk image."""
+    """Create the ISO file tree with the kernel folder and filesystem binary."""
     print("Copying project files to ISO structure...")
     if os.path.exists(tmp_iso_dir):
         shutil.rmtree(tmp_iso_dir, onerror=on_rm_error)
@@ -310,9 +274,11 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     if os.path.isdir(res_src):
         shutil.copytree(res_src, os.path.join(tmp_iso_dir, "resources"), dirs_exist_ok=True)
 
-    # Place disk image at ISO root
-    if os.path.exists(DISK_IMG):
-        shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "ssd.img"))
+    # Copy filesystem binary and bootloader
+    if os.path.exists(FILESYSTEM_BIN):
+        shutil.copy(FILESYSTEM_BIN, os.path.join(tmp_iso_dir, FILESYSTEM_BIN))
+    if os.path.exists("bootloader.bin"):
+        shutil.copy("bootloader.bin", os.path.join(tmp_iso_dir, "bootloader.bin"))
 
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
@@ -327,7 +293,8 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", "ssd.img",
+        "-b", "bootloader.bin",
+        "-no-emul-boot",
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
@@ -364,16 +331,19 @@ def main():
 
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
-    # Ensure disk driver source is present
     if any(f.endswith('disk.c') for f in c_files):
         print('Disk driver source detected')
     else:
         print('Warning: disk.c not found, disk driver missing')
-    # Resource files are copied directly to the disk image
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG, resources)
+
+    ensure_obj_dir()
+    fs_bin = make_filesystem_bin(resources, FILESYSTEM_BIN)
+    fs_obj = os.path.join(OBJ_DIR, 'filesystem.o')
+    objcopy_binary(fs_bin, fs_obj)
+
+    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN, extra_objs=[fs_obj])
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
