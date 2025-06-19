@@ -183,7 +183,7 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out, resources):
     root += b"\0" * (root_sectors*512 - len(root))
 
     total = 512 + root_sectors*512 + len(kernel_padded) + sum(len(r["data"]) for r in res_data)
-    min_size = 1474560  # 1.44MB
+    min_size = 32 * 1024 * 1024  # 32MB hard disk image
     img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size
@@ -196,7 +196,7 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out, resources):
             img.write(res["data"])
         img.write(b"\0" * (img_size - (512 + len(root) + len(kernel_padded) + sum(len(r["data"]) for r in res_data))))
 
-    print(f"Disk image ({img_size // 1024} KB) created with {len(res_data)} resource(s).")
+    print(f"Disk image ({img_size // (1024*1024)} MB) created with {len(res_data)} resource(s).")
     tmp_files.append(img_out)
     return res_data
 
@@ -305,8 +305,10 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
 
 
-    # Resources are stored on the disk image only; they are no longer copied
-    # directly onto the ISO file system.
+    # Copy resources folder to the ISO so the kernel can access files
+    res_src = os.path.join(proj_root, "resources")
+    if os.path.isdir(res_src):
+        shutil.copytree(res_src, os.path.join(tmp_iso_dir, "resources"), dirs_exist_ok=True)
 
     # Place disk image at ISO root
     if os.path.exists(DISK_IMG):
