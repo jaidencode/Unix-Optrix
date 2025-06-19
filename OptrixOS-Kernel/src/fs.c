@@ -131,3 +131,20 @@ void fs_init(void){
         }
     }
 }
+
+/* Very small placeholder persistence layer */
+#include "disk.h"
+#define FS_LBA_START 16
+
+void fs_load_from_disk(void){
+    unsigned char buf[512];
+    if(disk_read(FS_LBA_START, 1, buf)==0 && buf[0]=='F' && buf[1]=='S'){
+        /* placeholder implementation just checks magic */
+    }
+}
+
+void fs_save_to_disk(void){
+    unsigned char buf[512];
+    buf[0]='F'; buf[1]='S';
+    disk_write(FS_LBA_START,1,buf);
+}

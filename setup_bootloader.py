@@ -36,6 +36,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
+FS_IMG = "fs.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 
@@ -102,7 +103,7 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
     total = 512 + len(kern)
-    min_size = 1474560  # 1.44MB
+    min_size = 104857600  # 100MB
     img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size
@@ -111,6 +112,12 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
         img.write(kern)
         img.write(b'\0' * (img_size - total))
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+    tmp_files.append(img_out)
+
+def make_fs_img(img_out, size=104857600):
+    print(f"Creating filesystem image ({size // (1024*1024)} MB)...")
+    with open(img_out, "wb") as img:
+        img.write(b'\0' * size)
     tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
@@ -234,6 +241,8 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     # Place disk image at ISO root
     if os.path.exists(DISK_IMG):
         shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
+    if os.path.exists(FS_IMG):
+        shutil.copy(FS_IMG, os.path.join(tmp_iso_dir, "fs.img"))
 
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
@@ -287,6 +296,7 @@ def main():
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
     make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    make_fs_img(FS_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 

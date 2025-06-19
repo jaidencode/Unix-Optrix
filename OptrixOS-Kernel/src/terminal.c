@@ -158,7 +158,11 @@ static void cmd_mv(const char*args){
 static void cmd_cp(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_find_entry(current_dir,src);if(!f||f->is_dir){print("No file\n");return;}fs_entry*d=fs_find_entry(current_dir,dst);if(!d)d=fs_create_file(current_dir,dst);if(d&&!d->is_dir){fs_write_file(d,fs_read_file(f));print("Copied\n");}else print("Fail\n");}
 static void cmd_date(void){print("Build: " __DATE__ " " __TIME__ "\n");}
 static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
-static void cmd_shutdown(void){print("Shutdown\n");while(1){__asm__("hlt");}}
+static void cmd_shutdown(void){
+    fs_save_to_disk();
+    print("Shutdown\n");
+    while(1){__asm__("hlt");}
+}
 static void cmd_ver(void){print("OptrixOS 0.1 text\n");}
 static void cmd_whoami(void){print("root\n");}
 static void cmd_banner(void){fs_entry*f=fs_find_entry(fs_get_root(),"logo.txt");if(f){print(fs_read_file(f));put_char('\n');}}
