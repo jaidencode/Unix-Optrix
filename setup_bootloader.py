@@ -128,56 +128,39 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
-# === BINARY RESOURCE EMBEDDING LOGIC ===
-# No binary resources for the text mode build
-RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
-GENERATED_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "resources.c")
-GENERATED_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "resources.h")
-resource_bin_files = []
+# === ROOT FILE EMBEDDING ===
+ROOT_FILES = [
+    os.path.join(KERNEL_PROJECT_ROOT, "resources", "welcome.txt"),
+    os.path.join(KERNEL_PROJECT_ROOT, "resources", "logo.txt"),
+]
 
-def generate_resource_files():
-    if not os.path.isdir(RESOURCE_DIR):
-        return
+ROOT_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "root_files.c")
+ROOT_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "root_files.h")
+
+def generate_root_files():
     entries = []
-    for root, _, files in os.walk(RESOURCE_DIR):
-        for f in files:
-            path = os.path.join(root, f)
-            rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-            with open(path, "r", errors="ignore") as fh:
-                data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-            entries.append((rel, data))
-    with open(GENERATED_H, "w") as h:
-        h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
-        h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
-        h.write("extern const int resource_files_count;\n")
-        h.write("extern const resource_file resource_files[];\n")
+    for f in ROOT_FILES:
+        if not os.path.isfile(f):
+            continue
+        rel = os.path.relpath(f, KERNEL_PROJECT_ROOT).replace("\\", "/")
+        with open(f, "r", errors="ignore") as fh:
+            data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
+        entries.append((rel, data))
+    with open(ROOT_H, "w") as h:
+        h.write("#ifndef ROOT_FILES_H\n#define ROOT_FILES_H\n")
+        h.write("typedef struct { const char* path; const char* data; } root_file;\n")
+        h.write("extern const int root_files_count;\n")
+        h.write("extern const root_file root_files[];\n")
         h.write("#endif\n")
-    with open(GENERATED_C, "w") as c:
-        c.write('#include "resources.h"\n')
-        c.write("const resource_file resource_files[] = {\n")
+    with open(ROOT_C, "w") as c:
+        c.write('#include "root_files.h"\n')
+        c.write("const root_file root_files[] = {\n")
         for name, data in entries:
             c.write(f'    {{"{name}", "{data}"}},\n')
         c.write("};\n")
-        c.write(f"const int resource_files_count = {len(entries)};\n")
-    return GENERATED_C
+        c.write(f"const int root_files_count = {len(entries)};\n")
+    return ROOT_C
 
-def objcopy_binary(input_path, output_obj):
-    if not os.path.exists(input_path):
-        print(f"ERROR: Resource not found: {input_path}")
-        sys.exit(1)
-    # Only rebuild if changed
-    if not os.path.exists(output_obj) or os.path.getmtime(output_obj) < os.path.getmtime(input_path):
-        print(f"Embedding resource: {input_path} -> {output_obj}")
-        result = subprocess.run([
-            "objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386",
-            input_path, output_obj
-        ], capture_output=True, text=True)
-        if result.returncode != 0:
-            print("objcopy failed:", result.stdout, result.stderr)
-            sys.exit(1)
-        tmp_files.append(output_obj)
-    else:
-        print(f"Resource already up to date: {output_obj}")
 
 
 def build_kernel(asm_files, c_files, out_bin):
@@ -297,14 +280,9 @@ def main():
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
-    # Ensure disk driver source is present
-    if any(f.endswith('disk.c') for f in c_files):
-        print('Disk driver source detected')
-    else:
-        print('Warning: disk.c not found, disk driver missing')
-    res_c = generate_resource_files()
-    if res_c and res_c not in c_files:
-        c_files.append(res_c)
+    root_c = generate_root_files()
+    if root_c and root_c not in c_files:
+        c_files.append(root_c)
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)

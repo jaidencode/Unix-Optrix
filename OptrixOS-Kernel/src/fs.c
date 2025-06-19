@@ -1,23 +1,9 @@
 #include "fs.h"
 #include "mem.h"
-#include "disk.h"
+#include "root_files.h"
 #include <stddef.h>
 #include <stdint.h>
 
-#define MAX_FILES 16
-
-typedef struct {
-    char name[16];
-    uint32_t lba;
-    uint32_t size;
-} disk_file;
-
-typedef struct {
-    uint32_t count;
-    disk_file files[MAX_FILES];
-} disk_root;
-
-static disk_root root_table;
 static fs_entry root_dir;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
@@ -108,25 +94,40 @@ void fs_write_file(fs_entry* file,const char* text){
 }
 
 const char* fs_read_file(fs_entry* file){
-    if(!file||file->is_dir) return "";
-    uint32_t lba = (uint32_t)(uintptr_t)file->content;
-    char* buf = mem_alloc(512+1);
-    ata_read_sector(lba, buf);
-    buf[512]=0;
-    return buf;
+    if(!file || file->is_dir || !file->content)
+        return "";
+    return file->content;
 }
 
 void fs_init(void){
-    ata_init();
-    ata_read_sector(1, &root_table);
     root_dir.name="/";
     root_dir.is_dir=1;
     root_dir.parent=NULL;
     root_dir.child=NULL;
     root_dir.sibling=NULL;
     root_dir.content=NULL;
-    for(uint32_t i=0;i<root_table.count && i<MAX_FILES;i++){
-        fs_entry* f=fs_create_file(&root_dir, root_table.files[i].name);
-        if(f) f->content=(char*)(uintptr_t)root_table.files[i].lba;
+    for(int i=0;i<root_files_count;i++){
+        const char* path = root_files[i].path;
+        fs_entry* dir = &root_dir;
+        char part[32]; int pi=0;
+        for(int j=0;;j++){
+            char c=path[j];
+            if(c=='/' || c==0){
+                part[pi]=0;
+                if(c==0){
+                    fs_entry* f=fs_create_file(dir, part);
+                    if(f) fs_write_file(f, root_files[i].data);
+                    break;
+                } else {
+                    fs_entry* d=fs_find_subdir(dir, part);
+                    if(!d) d=fs_create_dir(dir, part);
+                    if(!d) break;
+                    dir=d;
+                    pi=0;
+                }
+            } else if(pi<31){
+                part[pi++]=c;
+            }
+        }
     }
 }
