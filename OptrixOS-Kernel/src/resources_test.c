@@ -28,10 +28,26 @@ void resources_test(void){
     for(fs_entry* f=dir->child; f; f=f->sibling){
         r_print(" - ");
         r_print(f->name);
+        r_print(" (");
+        char size_buf[16];
+        int idx=0;
+        unsigned int sz=f->size;
+        if(sz==0){size_buf[idx++]='0';}
+        else{
+            while(sz>0&&idx<15){size_buf[idx++]='0'+(sz%10);sz/=10;}
+        }
+        for(int i=idx-1;i>=0;i--) r_put(size_buf[i]);
+        r_print(" bytes)");
         if(f->embedded)
             r_print(" [embedded]\n");
         else
             r_print(" [disk]\n");
+
+        const char* content = fs_read_file(f);
+        r_print("   \"");
+        for(int i=0; i<32 && content[i]; i++)
+            r_put(content[i]);
+        r_print("\"\n");
     }
     r_print("\n");
 }

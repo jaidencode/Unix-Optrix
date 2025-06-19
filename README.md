@@ -80,3 +80,8 @@ created so it is always available from within the OS.
 `setup_bootloader.py` resolves the resources directory using its own
 location so it can be invoked from any path and still include the files
 correctly.
+
+At boot the kernel runs a small demo that lists the files embedded under
+`/resources` and prints a preview of each one. This verifies that the
+resources directory is available from within the OS and shows whether a
+file was loaded from the disk image or added later while running.
