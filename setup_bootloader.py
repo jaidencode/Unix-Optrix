@@ -102,7 +102,10 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
     total = 512 + len(kern)
-    min_size = total + 5 * 1024 * 1024 * 1024  # kernel plus 5GB
+    # The previous implementation created a huge 5GB disk image which caused
+    # `mkisofs` to fail on systems using a 32bit build. A smaller default disk
+    # keeps the image ISO-friendly while still providing space for testing.
+    min_size = total + 100 * 1024 * 1024  # kernel plus 100MB
     img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size

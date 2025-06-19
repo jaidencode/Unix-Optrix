@@ -113,8 +113,6 @@ void diskfs_write_file(fs_entry* e, const char* data, uint32_t size){
     metas[idx].size = size;
     e->disk_start = start;
     e->disk_size = size;
-    save_metadata();
-}
     /* Persist current metadata state to disk */
     save_metadata();
 }
