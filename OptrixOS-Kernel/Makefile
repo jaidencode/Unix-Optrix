@@ -1,6 +1,6 @@
 CFLAGS=-ffreestanding -fno-pie -fno-pic -m32 -Iinclude
 	
-all: disk.img
+all: boot.img resources.img
 	
 bootloader.bin: asm/bootloader.asm
 	@nasm -f bin $< -o $@
@@ -22,11 +22,14 @@ kernel.bin: asm/kernel.asm asm/ports.asm src/screen.o src/keyboard.o src/termina
 src/screen.o src/keyboard.o src/terminal.o src/fs.o \
 src/driver.o src/mem.o src/kernel_main.o src/disk.o src/resources_test.o src/embedded_resources.o --oformat binary -o $@
 	
-disk.img: bootloader.bin kernel.bin
-	@cat bootloader.bin kernel.bin > $@
+boot.img: bootloader.bin kernel.bin
+        @cat bootloader.bin kernel.bin > $@
+
+resources.img:
+        @echo "Use setup_bootloader.py to create resources.img"
 	
-run: disk.img
-	@qemu-system-i386 -drive format=raw,file=disk.img
+run: boot.img resources.img
+        @qemu-system-i386 -drive format=raw,file=boot.img -drive format=raw,file=resources.img,media=disk,if=ide,index=1
 	
 clean:
-	@rm -f *.bin *.o disk.img src/*.o kernel_asm.o
+        @rm -f *.bin *.o boot.img resources.img src/*.o kernel_asm.o

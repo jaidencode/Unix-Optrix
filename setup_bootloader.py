@@ -35,7 +35,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 KERNEL_PROJECT_ROOT = os.path.join(SCRIPT_DIR, "OptrixOS-Kernel")
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
-DISK_IMG = "disk.img"
+BOOT_IMG = "boot.img"
+RESOURCE_IMG = "resources.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 EMBED_HEADER = os.path.join(KERNEL_PROJECT_ROOT, "include", "embedded_resources.h")
@@ -188,8 +189,52 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out, resources):
         img.write(b"\0" * (img_size - (512 + len(root) + len(kernel_padded) + sum(len(r["data"]) for r in res_data))))
 
     print(f"Disk image ({img_size // 1024} KB) created with {len(res_data)} resource(s).")
-    tmp_files.append(img_out)
     return res_data
+
+def make_resource_disk(img_out, resources):
+    print("Creating resource disk image...")
+    boot = bytes(512)
+    kernel_sectors = 0
+
+    res_data = []
+    for r in resources:
+        data = bytearray(r["data"])
+        size = len(data)
+        pad = roundup(size, 512)
+        if pad > size:
+            data.extend(b"\0" * (pad - size))
+        res_data.append({"name": r["name"], "data": bytes(data), "size": size})
+
+    import struct
+    ENTRY_STRUCT = "<32sII"
+    entry_size = struct.calcsize(ENTRY_STRUCT)
+    root_entries = []
+    root_bytes = 12 + entry_size * len(res_data)
+    root_sectors = roundup(root_bytes, 512) // 512
+
+    resource_start = 1 + root_sectors
+    cur_lba = resource_start
+    for res in res_data:
+        res["lba"] = cur_lba
+        cur_lba += len(res["data"]) // 512
+        nb = res["name"].encode("ascii", errors="ignore")[:31]
+        nb += b"\0" * (32 - len(nb))
+        root_entries.append(struct.pack(ENTRY_STRUCT, nb, res["lba"], res["size"]))
+
+    root = struct.pack("<III", len(res_data), root_sectors, kernel_sectors) + b"".join(root_entries)
+    root += b"\0" * (root_sectors*512 - len(root))
+
+    total = 512 + root_sectors*512 + sum(len(r["data"]) for r in res_data)
+    img_size = roundup(total, 512)
+
+    with open(img_out, "wb") as img:
+        img.write(boot)
+        img.write(root)
+        for res in res_data:
+            img.write(res["data"])
+        img.write(b"\0" * (img_size - (512 + len(root) + sum(len(r["data"]) for r in res_data))))
+
+    print(f"Resource disk created: {img_out}")
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
@@ -297,15 +342,9 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
 
     # Expose the resources directory directly at the ISO root so
     # that it can be accessed easily from the running system.
-    src_resources = os.path.join(proj_root, "resources")
-    if os.path.isdir(src_resources):
-        dst_resources = os.path.join(tmp_iso_dir, "resources")
-        shutil.copytree(src_resources, dst_resources,
-                        ignore=ignore_git, dirs_exist_ok=True)
-
-    # Place disk image at ISO root
-    if os.path.exists(DISK_IMG):
-        shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
+    # Place boot disk image at ISO root
+    if os.path.exists(BOOT_IMG):
+        shutil.copy(BOOT_IMG, os.path.join(tmp_iso_dir, "boot.img"))
 
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
@@ -320,7 +359,7 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", "disk.img",
+        "-b", "boot.img",
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
@@ -350,7 +389,7 @@ def cleanup():
 def main():
     print("Collecting all project source files...")
     resources = collect_resources()
-    generate_embedded_sources(resources)
+    generate_embedded_sources([])
 
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
@@ -363,7 +402,8 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG, resources)
+    make_disk_with_resources(boot_bin, kernel_bin, BOOT_IMG, [])
+    make_resource_disk(RESOURCE_IMG, resources)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
