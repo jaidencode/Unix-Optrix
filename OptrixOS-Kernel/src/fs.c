@@ -47,7 +47,16 @@ fs_entry* fs_get_root(void){
     return &root_dir;
 }
 
-fs_entry* fs_create_dir(fs_entry* dir, const char* name){ (void)dir;(void)name; return NULL; }
+fs_entry* fs_create_dir(fs_entry* dir, const char* name){
+    if(!dir || !dir->is_dir)
+        return NULL;
+    /* simple heap based directory creation */
+    fs_entry* e = alloc_entry(name, 1);
+    if(!e)
+        return NULL;
+    add_child(dir, e);
+    return e;
+}
 fs_entry* fs_create_file(fs_entry* dir, const char* name){
     fs_entry* e=alloc_entry(name,0);
     if(!e) return NULL;
@@ -60,9 +69,43 @@ fs_entry* fs_find_entry(fs_entry* dir, const char* name){
     }
     return NULL;
 }
-fs_entry* fs_find_subdir(fs_entry* dir,const char* name){ (void)dir;(void)name; return NULL; }
-int fs_delete_entry(fs_entry* dir,const char* name){ (void)dir;(void)name; return 0; }
-void fs_write_file(fs_entry* file,const char* text){ (void)file;(void)text; }
+fs_entry* fs_find_subdir(fs_entry* dir,const char* name){
+    if(!dir || !dir->is_dir)
+        return NULL;
+    for(fs_entry*c=dir->child;c;c=c->sibling){
+        size_t i=0;while(c->name[i] && name[i] && c->name[i]==name[i]) i++;
+        if(c->name[i]==0 && name[i]==0 && c->is_dir)
+            return c;
+    }
+    return NULL;
+}
+
+int fs_delete_entry(fs_entry* dir,const char* name){
+    if(!dir || !dir->is_dir)
+        return 0;
+    fs_entry* prev=NULL;
+    for(fs_entry*c=dir->child;c;c=c->sibling){
+        size_t i=0;while(c->name[i] && name[i] && c->name[i]==name[i]) i++;
+        if(c->name[i]==0 && name[i]==0){
+            if(prev) prev->sibling=c->sibling; else dir->child=c->sibling;
+            return 1;
+        }
+        prev=c;
+    }
+    return 0;
+}
+
+void fs_write_file(fs_entry* file,const char* text){
+    if(!file || file->is_dir)
+        return;
+    size_t len = fs_strlen(text);
+    if(len>255) len=255;
+    char* buf = mem_alloc(len+1);
+    if(!buf) return;
+    for(size_t i=0;i<len;i++) buf[i]=text[i];
+    buf[len]='\0';
+    file->content = buf;
+}
 
 const char* fs_read_file(fs_entry* file){
     if(!file||file->is_dir) return "";
