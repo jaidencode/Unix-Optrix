@@ -249,6 +249,7 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         "-quiet",
         "-o", iso_out,
         "-b", "disk.img",
+        "-no-emul",
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
