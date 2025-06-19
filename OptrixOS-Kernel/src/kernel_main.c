@@ -1,6 +1,7 @@
 #include "screen.h"
 #include "terminal.h"
 #include "driver.h"
+#include "disk.h"
 #include "mem.h"
 
 /* simple heap placed at 0x200000 for illustration */
@@ -10,6 +11,7 @@
 void kernel_main(void) {
     screen_init();
     mem_init(HEAP_BASE, HEAP_SIZE);
+    disk_init();
     driver_init_all();
 
     terminal_init();
