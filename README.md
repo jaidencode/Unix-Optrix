@@ -42,6 +42,17 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+To boot from the ISO instead use:
+
+```bash
+qemu-system-x86_64 -cdrom OptrixOS.iso
+```
+
+`setup_bootloader.py` also creates a zero-filled 100&nbsp;MB image named
+`drive_c.img` that is packaged alongside `disk.img` in the ISO. The running
+kernel does not currently implement a block device driver so this file acts only
+as a placeholder for future storage experiments.
+
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
