@@ -76,6 +76,28 @@ fs_entry* fs_find_subdir(fs_entry* dir,const char* name){
     return NULL;
 }
 
+fs_entry* fs_find_path(const char* path){
+    if(!path || !*path) return fs_get_root();
+    fs_entry* dir = fs_get_root();
+    char part[32];
+    size_t pi = 0;
+    for(size_t i=0;;i++){
+        char c = path[i];
+        if(c=='/' || c==0){
+            part[pi]=0;
+            if(part[0]){
+                fs_entry* next = fs_find_entry(dir, part);
+                if(!next) return NULL;
+                dir = next;
+            }
+            pi = 0;
+            if(c==0) return dir;
+        } else if(pi < 31) {
+            part[pi++] = c;
+        }
+    }
+}
+
 int fs_delete_entry(fs_entry* dir,const char* name){
     if(!dir || !dir->is_dir)
         return 0;

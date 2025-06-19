@@ -161,7 +161,10 @@ static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
 static void cmd_shutdown(void){print("Shutdown\n");while(1){__asm__("hlt");}}
 static void cmd_ver(void){print("OptrixOS 0.1 text\n");}
 static void cmd_whoami(void){print("root\n");}
-static void cmd_banner(void){fs_entry*f=fs_find_entry(fs_get_root(),"logo.txt");if(f){print(fs_read_file(f));put_char('\n');}}
+static void cmd_banner(void){
+    fs_entry*f=fs_find_path("resources/hello.txt");
+    if(f){print(fs_read_file(f));put_char('\n');}
+}
 
 static void execute(const char*line){
     if(streq(line,"help")) cmd_help();
@@ -194,9 +197,10 @@ void terminal_init(void){
     screen_clear();
     fs_init();
     current_dir=fs_get_root();
-    fs_entry* logo = fs_find_entry(current_dir, "logo.txt");
-    if(logo) {
-        print(fs_read_file(logo));
+    fs_entry* hello = fs_find_path("resources/hello.txt");
+    if(hello)
+    {
+        print(fs_read_file(hello));
         put_char('\n');
     }
 }
