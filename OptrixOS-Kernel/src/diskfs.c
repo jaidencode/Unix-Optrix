@@ -115,8 +115,6 @@ void diskfs_write_file(fs_entry* e, const char* data, uint32_t size){
     e->disk_size = size;
     save_metadata();
 }
-
-void diskfs_sync(void){
     /* Persist current metadata state to disk */
     save_metadata();
 }
