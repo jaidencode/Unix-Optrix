@@ -116,6 +116,11 @@ void diskfs_write_file(fs_entry* e, const char* data, uint32_t size){
     save_metadata();
 }
 
+void diskfs_sync(void){
+    /* Persist current metadata state to disk */
+    save_metadata();
+}
+
 int diskfs_get_count(void){ return file_count; }
 const char* diskfs_get_name(int idx){ return (idx>=0 && idx<file_count)?metas[idx].name:""; }
 uint32_t diskfs_get_size(int idx){ return (idx>=0 && idx<file_count)?metas[idx].size:0; }
