@@ -36,6 +36,7 @@ KERNEL_PROJECT_ROOT = os.path.join(SCRIPT_DIR, "OptrixOS-Kernel")
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
+RESOURCES_IMG = "resources.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 EMBED_HEADER = os.path.join(KERNEL_PROJECT_ROOT, "include", "embedded_resources.h")
@@ -191,6 +192,39 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out, resources):
     tmp_files.append(img_out)
     return res_data
 
+def make_resources_disk(img_out, resources):
+    print("Creating external resources disk...")
+    import struct
+    ENTRY_STRUCT = "<32sII"
+    entry_size = struct.calcsize(ENTRY_STRUCT)
+
+    data_sections = []
+    root_entries = []
+    cur_lba = 1  # start after header+table
+    for r in resources:
+        nb = r["name"].encode("ascii", errors="ignore")[:31]
+        nb += b"\0" * (32 - len(nb))
+        size = len(r["data"])
+        pad = roundup(size, 512)
+        data_sections.append(r["data"] + b"\0"*(pad-size))
+        root_entries.append(struct.pack(ENTRY_STRUCT, nb, cur_lba, size))
+        cur_lba += pad // 512
+
+    root_bytes = 8 + len(root_entries)*entry_size
+    root_sectors = roundup(root_bytes, 512)//512
+    header = struct.pack("<II", len(root_entries), root_sectors)
+    table = b"".join(root_entries)
+    table += b"\0"*(root_sectors*512 - len(table))
+
+    with open(img_out, "wb") as img:
+        img.write(header)
+        img.write(table)
+        for d in data_sections:
+            img.write(d)
+
+    print(f"Resource disk created: {img_out} with {len(root_entries)} file(s)")
+    tmp_files.append(img_out)
+
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
     skip_dirs = {'.git', '_iso_tmp', '_build_obj', '__pycache__'}
@@ -295,14 +329,6 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
     shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
 
-    # Expose the resources directory directly at the ISO root so
-    # that it can be accessed easily from the running system.
-    src_resources = os.path.join(proj_root, "resources")
-    if os.path.isdir(src_resources):
-        dst_resources = os.path.join(tmp_iso_dir, "resources")
-        shutil.copytree(src_resources, dst_resources,
-                        ignore=ignore_git, dirs_exist_ok=True)
-
     # Place disk image at ISO root
     if os.path.exists(DISK_IMG):
         shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
@@ -350,7 +376,7 @@ def cleanup():
 def main():
     print("Collecting all project source files...")
     resources = collect_resources()
-    generate_embedded_sources(resources)
+    generate_embedded_sources([])
 
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
@@ -363,7 +389,8 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG, resources)
+    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG, [])
+    make_resources_disk(RESOURCES_IMG, resources)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 

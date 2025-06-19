@@ -11,6 +11,7 @@
 #define ATA_DATA 0
 
 static uint16_t ata_io_base = 0x1F0;
+static uint8_t ata_drive_head = 0xE0; /* master */
 #define ATA_REG(r) (ata_io_base + (r))
 #define ATA_STATUS ATA_REG(ATA_STATUS_REG)
 #define ATA_CMD_READ_PIO 0x20
@@ -24,6 +25,11 @@ static void ata_wait_bsy(void){
 
 static void ata_wait_drq(void){
     while(!(inb(ATA_STATUS) & ATA_STATUS_DRQ));
+}
+
+void ata_select(uint16_t base, int slave){
+    ata_io_base = base;
+    ata_drive_head = slave ? 0xF0 : 0xE0;
 }
 
 int ata_detect(void){
@@ -49,7 +55,7 @@ int ata_read_sector(uint32_t lba, void* buffer){
     outb(ATA_REG(ATA_LBA_LOW), (uint8_t)lba);
     outb(ATA_REG(ATA_LBA_MID), (uint8_t)(lba >> 8));
     outb(ATA_REG(ATA_LBA_HIGH), (uint8_t)(lba >> 16));
-    outb(ATA_REG(ATA_DRIVE), 0xE0 | ((lba >> 24) & 0x0F));
+    outb(ATA_REG(ATA_DRIVE), ata_drive_head | ((lba >> 24) & 0x0F));
     outb(ATA_REG(ATA_COMMAND), ATA_CMD_READ_PIO);
     ata_wait_bsy();
     ata_wait_drq();
@@ -65,7 +71,7 @@ int ata_write_sector(uint32_t lba, const void* buffer){
     outb(ATA_REG(ATA_LBA_LOW), (uint8_t)lba);
     outb(ATA_REG(ATA_LBA_MID), (uint8_t)(lba >> 8));
     outb(ATA_REG(ATA_LBA_HIGH), (uint8_t)(lba >> 16));
-    outb(ATA_REG(ATA_DRIVE), 0xE0 | ((lba >> 24) & 0x0F));
+    outb(ATA_REG(ATA_DRIVE), ata_drive_head | ((lba >> 24) & 0x0F));
     outb(ATA_REG(ATA_COMMAND), ATA_CMD_WRITE_PIO);
     ata_wait_bsy();
     ata_wait_drq();
@@ -74,3 +80,4 @@ int ata_write_sector(uint32_t lba, const void* buffer){
     ata_wait_bsy();
     return 0;
 }
+
