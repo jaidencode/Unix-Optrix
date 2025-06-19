@@ -94,24 +94,6 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
-    print("Creating dynamically-sized disk image...")
-    boot = open(boot_bin, "rb").read()
-    if len(boot) != 512:
-        print("Error: Bootloader must be exactly 512 bytes!")
-        sys.exit(1)
-    kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
-    min_size = 1474560  # 1.44MB
-    img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
-    with open(img_out, "wb") as img:
-        img.write(boot)
-        img.write(kern)
-        img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
-    tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
@@ -128,38 +110,55 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
-# === BINARY RESOURCE EMBEDDING LOGIC ===
-# No binary resources for the text mode build
+# === EMBED RESOURCE FILES IN DISK IMAGE ===
 RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
-GENERATED_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "resources.c")
-GENERATED_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "resources.h")
-resource_bin_files = []
 
-def generate_resource_files():
-    if not os.path.isdir(RESOURCE_DIR):
-        return
+def make_disk_with_resources(boot_bin, kernel_bin, img_out):
+    print("Creating disk image with embedded resources...")
+    import struct
+    boot = open(boot_bin, "rb").read()
+    if len(boot) != 512:
+        print("Error: Bootloader must be exactly 512 bytes!")
+        sys.exit(1)
+    kernel = open(kernel_bin, "rb").read()
+    kern_pad = roundup(len(kernel), 512)
+    kernel_padded = kernel + b'\0' * (kern_pad - len(kernel))
+    kernel_sectors = kern_pad // 512
+
+    resources = []
+    if os.path.isdir(RESOURCE_DIR):
+        for f in sorted(os.listdir(RESOURCE_DIR)):
+            path = os.path.join(RESOURCE_DIR, f)
+            if os.path.isfile(path):
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                resources.append((f, data))
+
+    lba = 2 + kernel_sectors
     entries = []
-    for root, _, files in os.walk(RESOURCE_DIR):
-        for f in files:
-            path = os.path.join(root, f)
-            rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-            with open(path, "r", errors="ignore") as fh:
-                data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-            entries.append((rel, data))
-    with open(GENERATED_H, "w") as h:
-        h.write("#ifndef RESOURCES_H\n#define RESOURCES_H\n")
-        h.write("typedef struct { const char* name; const char* data; } resource_file;\n")
-        h.write("extern const int resource_files_count;\n")
-        h.write("extern const resource_file resource_files[];\n")
-        h.write("#endif\n")
-    with open(GENERATED_C, "w") as c:
-        c.write('#include "resources.h"\n')
-        c.write("const resource_file resource_files[] = {\n")
-        for name, data in entries:
-            c.write(f'    {{"{name}", "{data}"}},\n')
-        c.write("};\n")
-        c.write(f"const int resource_files_count = {len(entries)};\n")
-    return GENERATED_C
+    data_blocks = []
+    for name, data in resources[:16]:
+        sec = roundup(len(data), 512) // 512
+        entries.append((name[:15], lba, len(data)))
+        data_blocks.append(data + b'\0' * (sec * 512 - len(data)))
+        lba += sec
+
+    root = struct.pack('<I', len(entries))
+    for n, l, sz in entries:
+        nb = n.encode('ascii', 'ignore')[:15]
+        nb += b'\0' * (16 - len(nb))
+        root += struct.pack('<16sII', nb, l, sz)
+    root = root.ljust(512, b'\0')
+
+    img_data = boot + root + kernel_padded + b''.join(data_blocks)
+    min_size = 1474560
+    if len(img_data) < min_size:
+        img_data += b'\0' * (min_size - len(img_data))
+
+    with open(img_out, 'wb') as img:
+        img.write(img_data)
+    tmp_files.append(img_out)
+    print(f"Disk image ({len(img_data) // 1024} KB) created with resources.")
 
 def objcopy_binary(input_path, output_obj):
     if not os.path.exists(input_path):
@@ -302,13 +301,10 @@ def main():
         print('Disk driver source detected')
     else:
         print('Warning: disk.c not found, disk driver missing')
-    res_c = generate_resource_files()
-    if res_c and res_c not in c_files:
-        c_files.append(res_c)
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    make_disk_with_resources(boot_bin, kernel_bin, DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
