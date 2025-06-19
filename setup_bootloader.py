@@ -113,25 +113,33 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
                 continue
             with open(path, "rb") as fh:
                 data = fh.read()
-            if len(data) > 512:
-                print(f"Warning: truncating {name} to 512 bytes")
-                data = data[:512]
-            data += b"\0" * (512 - len(data))
-            lba = 2 + kernel_sectors + len(resources)
-            resources.append((name, lba, len(data.rstrip(b"\0")), data))
+            size = len(data)
+            pad = roundup(size, 512)
+            data += b"\0" * (pad - size)
+            resources.append({"name": name, "data": data, "size": size})
 
     import struct
-    root = struct.pack("<I", len(resources))
-    for name, lba, size, _ in resources:
-        nb = name.encode("ascii", errors="ignore")[:15]
-        nb += b"\0" * (16 - len(nb))
-        root += struct.pack("<16sII", nb, lba, size)
-    if len(root) > 512:
-        root = root[:512]
-    else:
-        root += b"\0" * (512 - len(root))
+    ENTRY_STRUCT = "<32sII"
+    entry_size = struct.calcsize(ENTRY_STRUCT)
 
-    total = 512 + 512 + len(kernel_padded) + 512 * len(resources)
+    root_entries = []
+    root_bytes = 4 + entry_size * len(resources)
+    root_sectors = roundup(root_bytes, 512) // 512
+
+    kernel_start = 1 + root_sectors
+    resource_start = kernel_start + kernel_sectors
+    cur_lba = resource_start
+    for res in resources:
+        res["lba"] = cur_lba
+        cur_lba += len(res["data"]) // 512
+        nb = res["name"].encode("ascii", errors="ignore")[:31]
+        nb += b"\0" * (32 - len(nb))
+        root_entries.append(struct.pack(ENTRY_STRUCT, nb, res["lba"], res["size"]))
+
+    root = struct.pack("<I", len(resources)) + b"".join(root_entries)
+    root += b"\0" * (root_sectors*512 - len(root))
+
+    total = 512 + root_sectors*512 + len(kernel_padded) + sum(len(r["data"]) for r in resources)
     min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
     if img_size < min_size:
@@ -141,9 +149,9 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
         img.write(boot)
         img.write(root)
         img.write(kernel_padded)
-        for _, _, _, data in resources:
-            img.write(data)
-        img.write(b"\0" * (img_size - (512 + 512 + len(kernel_padded) + 512 * len(resources))))
+        for res in resources:
+            img.write(res["data"])
+        img.write(b"\0" * (img_size - (512 + len(root) + len(kernel_padded) + sum(len(r["data"]) for r in resources))))
 
     print(f"Disk image ({img_size // 1024} KB) created with {len(resources)} resource(s).")
     tmp_files.append(img_out)

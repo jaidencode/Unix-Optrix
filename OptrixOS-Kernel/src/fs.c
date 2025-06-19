@@ -4,20 +4,14 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define MAX_FILES 16
-
 typedef struct {
-    char name[16];
+    char name[32];
     uint32_t lba;
     uint32_t size;
 } disk_file;
 
-typedef struct {
-    uint32_t count;
-    disk_file files[MAX_FILES];
-} disk_root;
-
-static disk_root root_table;
+static disk_file* disk_files = NULL;
+static uint32_t disk_file_count = 0;
 static fs_entry root_dir;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
@@ -34,6 +28,8 @@ static fs_entry* alloc_entry(const char*name,int is_dir){
     e->child=NULL;
     e->sibling=NULL;
     e->content=NULL;
+    e->lba=0;
+    e->size=0;
     return e;
 }
 
@@ -105,28 +101,60 @@ void fs_write_file(fs_entry* file,const char* text){
     for(size_t i=0;i<len;i++) buf[i]=text[i];
     buf[len]='\0';
     file->content = buf;
+    file->size = len;
 }
 
 const char* fs_read_file(fs_entry* file){
     if(!file||file->is_dir) return "";
-    uint32_t lba = (uint32_t)(uintptr_t)file->content;
-    char* buf = mem_alloc(512+1);
-    ata_read_sector(lba, buf);
-    buf[512]=0;
+    if(file->content)
+        return file->content;
+    uint32_t sectors = (file->size + 511) / 512;
+    char* buf = mem_alloc(sectors*512 + 1);
+    if(!buf) return "";
+    for(uint32_t i=0;i<sectors;i++)
+        ata_read_sector(file->lba + i, buf + i*512);
+    buf[file->size] = 0;
     return buf;
 }
 
 void fs_init(void){
     ata_init();
-    ata_read_sector(1, &root_table);
+
+    unsigned char first[512];
+    ata_read_sector(1, first);
+    disk_file_count = *((uint32_t*)first);
+
+    unsigned int entry_bytes = disk_file_count * sizeof(disk_file);
+    unsigned int table_bytes = 4 + entry_bytes;
+    unsigned int sectors = (table_bytes + 511) / 512;
+
+    unsigned char* buf = mem_alloc(sectors * 512);
+    if(!buf) return;
+
+    for(unsigned int i=0;i<sectors;i++){
+        if(i==0){
+            for(int j=0;j<512;j++) buf[j] = first[j];
+        }else{
+            ata_read_sector(1+i, buf + i*512);
+        }
+    }
+
+    disk_files = (disk_file*)(buf + 4);
+
     root_dir.name="/";
     root_dir.is_dir=1;
     root_dir.parent=NULL;
     root_dir.child=NULL;
     root_dir.sibling=NULL;
     root_dir.content=NULL;
-    for(uint32_t i=0;i<root_table.count && i<MAX_FILES;i++){
-        fs_entry* f=fs_create_file(&root_dir, root_table.files[i].name);
-        if(f) f->content=(char*)(uintptr_t)root_table.files[i].lba;
+    root_dir.lba=0;
+    root_dir.size=0;
+
+    for(uint32_t i=0;i<disk_file_count;i++){
+        fs_entry* f=fs_create_file(&root_dir, disk_files[i].name);
+        if(f){
+            f->lba=disk_files[i].lba;
+            f->size=disk_files[i].size;
+        }
     }
 }
