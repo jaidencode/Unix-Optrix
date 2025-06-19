@@ -3,6 +3,7 @@
 #include "driver.h"
 #include "mem.h"
 #include "fs.h"
+#include "iso9660.h"
 
 /* simple heap placed at 0x200000 for illustration */
 #define HEAP_BASE ((unsigned char*)0x200000)
@@ -13,7 +14,7 @@ void kernel_main(void) {
     mem_init(HEAP_BASE, HEAP_SIZE);
     driver_init_all();
 
-    fs_load_sector_file(1, 1, "disksector.bin");
+    iso_populate_fs();
 
     terminal_init();
     terminal_run();

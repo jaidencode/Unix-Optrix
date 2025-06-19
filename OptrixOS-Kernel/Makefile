@@ -12,12 +12,13 @@ kernel.bin: asm/kernel.asm asm/ports.asm src/screen.o src/keyboard.o src/termina
 	@gcc $(CFLAGS) -c src/keyboard.c -o src/keyboard.o
 	@gcc $(CFLAGS) -c src/terminal.c -o src/terminal.o
 	@gcc $(CFLAGS) -c src/fs.c -o src/fs.o
+	@gcc $(CFLAGS) -c src/iso9660.c -o src/iso9660.o
 	@gcc $(CFLAGS) -c src/driver.c -o src/driver.o
 	@gcc $(CFLAGS) -c src/mem.c -o src/mem.o
 	@gcc $(CFLAGS) -c src/kernel_main.c -o src/kernel_main.o
 	@ld -m elf_i386 -Ttext 0x1000 kernel_asm.o ports.o \
-	src/screen.o src/keyboard.o src/terminal.o src/fs.o \
-	src/driver.o src/mem.o src/kernel_main.o --oformat binary -o $@
+        src/screen.o src/keyboard.o src/terminal.o src/fs.o \
+        src/iso9660.o src/driver.o src/mem.o src/kernel_main.o --oformat binary -o $@
 	
 disk.img: bootloader.bin kernel.bin
 	@cat bootloader.bin kernel.bin > $@
