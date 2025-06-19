@@ -70,3 +70,6 @@ The following commands are implemented:
 * `ver`     - show version
 * `shutdown`/`exit` - halt the system
 
+
+### Resources
+Files inside `OptrixOS-Kernel/resources` are packed onto the disk image under `/resources`. On boot the kernel prints `hello.txt` from this directory to demonstrate reading files from the ISO.

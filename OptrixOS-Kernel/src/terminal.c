@@ -2,6 +2,7 @@
 #include "keyboard.h"
 #include "screen.h"
 #include "fs.h"
+#include "disk.h"
 #include "mem.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -195,11 +196,23 @@ static void execute(const char*line){
 
 void terminal_init(void){
     screen_clear();
+
+    if(ata_detect())
+        print("ATA drive detected\n");
+    else
+        print("No ATA drive found\n");
+
     fs_init();
+
+    fs_entry* res = fs_find_path("resources");
+    if(res && res->is_dir)
+        print("resources directory ready\n");
+    else
+        print("resources directory missing\n");
+
     current_dir=fs_get_root();
     fs_entry* hello = fs_find_path("resources/hello.txt");
-    if(hello)
-    {
+    if(hello){
         print(fs_read_file(hello));
         put_char('\n');
     }
