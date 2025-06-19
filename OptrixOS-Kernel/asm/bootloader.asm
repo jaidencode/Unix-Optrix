@@ -30,13 +30,10 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
+    ; load kernel using BIOS extended read
     mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    mov si, DAP
+    mov ah, 0x42
     int 0x13
 
     ; setup basic GDT for protected mode
@@ -77,6 +74,13 @@ gdt_desc:
     dd gdt_start
 
 BOOT_DRIVE: db 0
+
+DAP:
+    db 0x10, 0         ; size and reserved
+    dw KERNEL_SECTORS  ; number of sectors to read
+    dw 0x1000          ; offset to load kernel
+    dw 0x0000          ; segment
+    dq 1               ; starting LBA (sector 2)
 
 bootmsg: db 'Loading OptrixOS...',0
 
