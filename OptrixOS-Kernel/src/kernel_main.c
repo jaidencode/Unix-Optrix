@@ -1,3 +1,4 @@
+#include "graphics.h"
 #include "screen.h"
 #include "terminal.h"
 #include "driver.h"
@@ -9,6 +10,7 @@
 
 void kernel_main(void) {
     screen_init();
+    graphics_init();
     mem_init(HEAP_BASE, HEAP_SIZE);
     driver_init_all();
 
