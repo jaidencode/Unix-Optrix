@@ -5,10 +5,13 @@ import shutil
 import stat
 
 # --- CONFIGURATION ---
-TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
-CC = os.environ.get("CC") or os.path.join(TOOLCHAIN_DIR, "i686-elf-gcc.exe")
-LD = os.environ.get("LD") or os.path.join(TOOLCHAIN_DIR, "i686-elf-ld.exe")
-OBJDUMP = os.environ.get("OBJDUMP") or os.path.join(TOOLCHAIN_DIR, "i686-elf-objdump.exe")
+# Location of the optional cross compiler toolchain.  If TOOLCHAIN_DIR is not
+# set, the script attempts to use the system ``i686-linux-gnu-*`` toolchain and
+# finally falls back to the host compiler with ``-m32`` flags.
+TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR", "")
+CC = os.environ.get("CC") or os.path.join(TOOLCHAIN_DIR, "i686-elf-gcc")
+LD = os.environ.get("LD") or os.path.join(TOOLCHAIN_DIR, "i686-elf-ld")
+OBJDUMP = os.environ.get("OBJDUMP") or os.path.join(TOOLCHAIN_DIR, "i686-elf-objdump")
 NASM = "nasm"
 
 if not os.path.isfile(CC):
@@ -25,8 +28,8 @@ if not shutil.which(LD):
 if not shutil.which(OBJDUMP):
     OBJDUMP = "objdump"
 
-CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR") or r"C:\\Program Files (x86)\\cdrtools"
-MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs.exe")
+CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR", "")
+MKISOFS_EXE = os.environ.get("MKISOFS") or os.path.join(CDRTOOLS_DIR, "mkisofs")
 if not os.path.isfile(MKISOFS_EXE):
     MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
 
