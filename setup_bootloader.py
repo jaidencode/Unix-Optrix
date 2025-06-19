@@ -295,13 +295,9 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
     shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
 
-    # Expose the resources directory directly at the ISO root so
-    # that it can be accessed easily from the running system.
-    src_resources = os.path.join(proj_root, "resources")
-    if os.path.isdir(src_resources):
-        dst_resources = os.path.join(tmp_iso_dir, "resources")
-        shutil.copytree(src_resources, dst_resources,
-                        ignore=ignore_git, dirs_exist_ok=True)
+
+    # Resources are stored on the disk image only; they are no longer copied
+    # directly onto the ISO file system.
 
     # Place disk image at ISO root
     if os.path.exists(DISK_IMG):
@@ -350,7 +346,9 @@ def cleanup():
 def main():
     print("Collecting all project source files...")
     resources = collect_resources()
-    generate_embedded_sources(resources)
+    # Resources are stored on the disk image only. The kernel no longer embeds
+    # the raw file data, so generate an empty resource table for compilation.
+    generate_embedded_sources([])
 
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
