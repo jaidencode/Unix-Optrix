@@ -38,6 +38,7 @@ KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
+BUILD_CFG_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "build_config.h")
 
 tmp_files = []
 
@@ -94,7 +95,9 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
+def make_dynamic_img(boot_bin, kernel_bin, img_out, free_space=100*1024*1024):
+    """Create a disk image containing the bootloader and kernel with
+    at least ``free_space`` bytes left unused for user files."""
     print("Creating dynamically-sized disk image...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
@@ -102,10 +105,11 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
     total = 512 + len(kern)
-    min_size = 1474560  # 1.44MB
-    img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
+    # Ensure the image has enough free space for user storage
+    min_size = total + free_space
+    img_size = roundup(min_size, 512)
+    if img_size < 1474560:
+        img_size = 1474560
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
@@ -203,6 +207,13 @@ def build_kernel(asm_files, c_files, out_bin):
     kernel_bytes = os.path.getsize(out_bin)
     sectors = roundup(kernel_bytes, 512) // 512
 
+    # Write build-time configuration header for the kernel
+    with open(BUILD_CFG_H, "w") as bc:
+        bc.write("#ifndef BUILD_CONFIG_H\n#define BUILD_CONFIG_H\n")
+        bc.write(f"#define KERNEL_SECTORS {sectors}\n")
+        bc.write(f"#define FS_START_SECTOR {sectors + 1}\n")
+        bc.write("#endif\n")
+
     boot_bin = "bootloader.bin"
     assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
 
@@ -286,7 +297,8 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    # Create a disk image with at least 100MB free space for user files
+    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG, free_space=100*1024*1024)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 

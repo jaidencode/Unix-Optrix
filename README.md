@@ -42,6 +42,10 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+The build script now creates a 100&nbsp;MB disk image, leaving plenty of free
+space for files. The kernel includes a very small ATA driver so text files
+created from the shell are written back to this image.
+
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing

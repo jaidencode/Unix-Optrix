@@ -1,10 +1,13 @@
 #include "fs.h"
 #include "mem.h"
 #include "root_files.h"
+#include "disk.h"
+#include "build_config.h"
 #include <stddef.h>
 #include <stdint.h>
 
 static fs_entry root_dir;
+static unsigned int next_free_sector = FS_START_SECTOR;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
 
@@ -20,6 +23,8 @@ static fs_entry* alloc_entry(const char*name,int is_dir){
     e->child=NULL;
     e->sibling=NULL;
     e->content=NULL;
+    e->disk_offset=0;
+    e->disk_size=0;
     return e;
 }
 
@@ -91,10 +96,42 @@ void fs_write_file(fs_entry* file,const char* text){
     for(size_t i=0;i<len;i++) buf[i]=text[i];
     buf[len]='\0';
     file->content = buf;
+
+    /* Store the content on disk as well */
+    unsigned int sectors = (len + 511) / 512;
+    file->disk_offset = next_free_sector;
+    file->disk_size = len;
+    uint8_t sec[512];
+    for(unsigned int s=0;s<sectors;s++){
+        for(int i=0;i<512;i++){
+            unsigned int idx=s*512+i;
+            sec[i] = idx<len ? (uint8_t)text[idx] : 0;
+        }
+        disk_write_sector(next_free_sector+s, sec);
+    }
+    next_free_sector += sectors;
 }
 
 const char* fs_read_file(fs_entry* file){
-    if(!file || file->is_dir || !file->content)
+    if(!file || file->is_dir)
+        return "";
+    if(!file->content && file->disk_size){
+        char* buf = mem_alloc(file->disk_size + 1);
+        if(!buf) return "";
+        unsigned int sectors = (file->disk_size + 511)/512;
+        uint8_t sec[512];
+        for(unsigned int s=0;s<sectors;s++){
+            disk_read_sector(file->disk_offset + s, sec);
+            for(int i=0;i<512;i++){
+                unsigned int idx=s*512+i;
+                if(idx<file->disk_size)
+                    buf[idx] = sec[i];
+            }
+        }
+        buf[file->disk_size] = '\0';
+        file->content = buf;
+    }
+    if(!file->content)
         return "";
     return file->content;
 }
@@ -106,6 +143,8 @@ void fs_init(void){
     root_dir.child=NULL;
     root_dir.sibling=NULL;
     root_dir.content=NULL;
+    root_dir.disk_offset=0;
+    root_dir.disk_size=0;
     for(int i=0;i<root_files_count;i++){
         const char* path = root_files[i].path;
         fs_entry* dir = &root_dir;
