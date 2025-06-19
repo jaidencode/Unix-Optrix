@@ -1,6 +1,7 @@
 #include "fs.h"
 #include "mem.h"
 #include "root_files.h"
+#include "diskfs.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -20,6 +21,8 @@ static fs_entry* alloc_entry(const char*name,int is_dir){
     e->child=NULL;
     e->sibling=NULL;
     e->content=NULL;
+    e->disk_start=0;
+    e->disk_size=0;
     return e;
 }
 
@@ -47,6 +50,7 @@ fs_entry* fs_create_file(fs_entry* dir, const char* name){
     fs_entry* e=alloc_entry(name,0);
     if(!e) return NULL;
     add_child(dir,e);
+    diskfs_add_entry(e);
     return e;
 }
 fs_entry* fs_find_entry(fs_entry* dir, const char* name){
@@ -91,10 +95,15 @@ void fs_write_file(fs_entry* file,const char* text){
     for(size_t i=0;i<len;i++) buf[i]=text[i];
     buf[len]='\0';
     file->content = buf;
+    diskfs_write_file(file, buf, len);
 }
 
 const char* fs_read_file(fs_entry* file){
-    if(!file || file->is_dir || !file->content)
+    if(!file || file->is_dir)
+        return "";
+    if(!file->content && file->disk_size)
+        diskfs_load_file(file);
+    if(!file->content)
         return "";
     return file->content;
 }
@@ -106,6 +115,7 @@ void fs_init(void){
     root_dir.child=NULL;
     root_dir.sibling=NULL;
     root_dir.content=NULL;
+    diskfs_init();
     for(int i=0;i<root_files_count;i++){
         const char* path = root_files[i].path;
         fs_entry* dir = &root_dir;
@@ -128,6 +138,18 @@ void fs_init(void){
             } else if(pi<31){
                 part[pi++]=c;
             }
+        }
+    }
+
+    /* load files listed in disk metadata */
+    int dcount = diskfs_get_count();
+    for(int i=0;i<dcount; i++) {
+        const char* name = diskfs_get_name(i);
+        fs_entry* f = fs_create_file(&root_dir, name);
+        if(f){
+            f->disk_start = diskfs_get_start(i);
+            f->disk_size = diskfs_get_size(i);
+            f->content = NULL;
         }
     }
 }
