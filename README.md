@@ -35,6 +35,11 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
+The build script now creates a 5GB disk image so the running system has ample
+space for files. The kernel includes a very small on-disk filesystem accessed via
+a basic ATA driver. Files created with shell commands persist across boots as
+they are written into this image.
+
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
 script outputs `disk.img` which can be run with:
 
