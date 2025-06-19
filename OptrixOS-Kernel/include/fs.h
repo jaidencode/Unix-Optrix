@@ -26,5 +26,7 @@ const char* fs_read_file(fs_entry* file);
 void fs_init(void);
 fs_entry* fs_get_root(void);
 fs_entry* fs_find_subdir(fs_entry* dir, const char* name);
+/* Convenience: find an entry by absolute path like "dir/file" */
+fs_entry* fs_find_path(const char* path);
 
 #endif
