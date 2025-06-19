@@ -18,7 +18,6 @@ typedef struct {
 } disk_root;
 
 static disk_root root_table;
-#define FS_DRIVE 1
 static fs_entry root_dir;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
@@ -112,14 +111,14 @@ const char* fs_read_file(fs_entry* file){
     if(!file||file->is_dir) return "";
     uint32_t lba = (uint32_t)(uintptr_t)file->content;
     char* buf = mem_alloc(512+1);
-    ata_read_sector_drive(FS_DRIVE, lba, buf);
+    ata_read_sector(lba, buf);
     buf[512]=0;
     return buf;
 }
 
 void fs_init(void){
     ata_init();
-    ata_read_sector_drive(FS_DRIVE, 1, &root_table);
+    ata_read_sector(1, &root_table);
     root_dir.name="/";
     root_dir.is_dir=1;
     root_dir.parent=NULL;
