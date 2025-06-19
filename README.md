@@ -39,10 +39,7 @@ Running `python3 setup_bootloader.py` now produces `OptrixOS.iso` directly.
 The script creates a `boot.img` containing the bootloader and kernel, which is
 used as the El Torito boot image so the loader can read the kernel from
 contiguous sectors.
-During the build a `filesystem.bit` image is generated from the contents of
-`OptrixOS-Kernel/resources` and linked into the kernel. No disk image is
-created and the OS accesses files from this embedded binary rather than
-`ssd.img`.
+The kernel no longer includes a filesystem. It boots directly into a minimal terminal with built-in keyboard and graphics drivers.
 
 ## Built-in terminal
 
@@ -56,36 +53,12 @@ The following commands are implemented:
 * `about`   - display information about OptrixOS
 * `add`     - add two numbers
 * `mul`     - multiply two numbers
-* `dir`/`ls`- list directory contents
-* `cd`      - change directory
-* `pwd`     - show current directory
 * `date`/`time` - show build date
-* `uptime`  - show uptime counter
-* `cat`     - view a file
-* `touch`   - create a file
-* `rm`      - delete a file
-* `mv`      - rename a file
-* `mkdir`   - create a directory
-* `rmdir`   - remove an empty directory
-* `cp`      - copy a file
-* `sync`    - flush in-memory file to disk
+
+
 * `rand`    - generate a random number
+* `uptime` - show uptime counter
 * `ver`     - show version
-* `debug`   - print memory and disk statistics
-* `shutdown`/`exit` - halt the system
+* `shutdown` - halt the system
 
-
-### Resources
-Files inside `OptrixOS-Kernel/resources` are converted into `filesystem.bit`
-during the build. This binary contains the directory tree and file data and is
-linked into the kernel so the files are always available from within the OS
-without attaching a separate disk image.
-
-The repository includes a file `resources/verification.bin` which is
-included in `filesystem.bit`.  During boot the kernel checks this file and
-prints `verification.bin: TRUE` if it was found and its contents match the
-expected string `VERIFICATION_OK`.
-
-`setup_bootloader.py` resolves the resources directory using its own
-location so it can be invoked from any path and still include the files
-correctly.
+A total of 50 commands are built in; the remaining ones are simple placeholders for future features.

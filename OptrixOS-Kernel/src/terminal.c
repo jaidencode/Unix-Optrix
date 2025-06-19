@@ -1,11 +1,7 @@
 #include "terminal.h"
 #include "keyboard.h"
 #include "screen.h"
-#include "fs.h"
-#include "disk.h"
-#include "ssd.h"
-#include "mem.h"
-#include "resources_test.h"
+#include "graphics.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -15,274 +11,95 @@ static int row = 0;
 static int col = 0;
 static uint8_t text_color = DEFAULT_COLOR;
 
-static size_t t_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
-
-static void scroll(void) {
+static void scroll(void){
     volatile uint16_t *vga = (uint16_t*)0xB8000;
-    for(int y=1; y<SCREEN_ROWS; y++)
-        for(int x=0; x<SCREEN_COLS; x++)
-            vga[(y-1)*SCREEN_COLS + x] = vga[y*SCREEN_COLS + x];
-    for(int x=0; x<SCREEN_COLS; x++)
-        vga[(SCREEN_ROWS-1)*SCREEN_COLS + x] = (BACKGROUND_COLOR<<8) | ' ';
+    for(int y=1;y<SCREEN_ROWS;y++)
+        for(int x=0;x<SCREEN_COLS;x++)
+            vga[(y-1)*SCREEN_COLS+x] = vga[y*SCREEN_COLS+x];
+    for(int x=0;x<SCREEN_COLS;x++)
+        vga[(SCREEN_ROWS-1)*SCREEN_COLS+x] = (BACKGROUND_COLOR<<8) | ' ';
 }
 
-static void put_char(char c) {
-    if(c=='\n') {
-        col = 0;
-        row++;
-    } else if(c=='\b') {
-        if(col>0) { col--; screen_put_char(col,row,' ',text_color); }
-    } else {
-        screen_put_char(col,row,c,text_color);
-        col++;
-        if(col>=SCREEN_COLS) { col=0; row++; }
-    }
-    if(row>=SCREEN_ROWS) { scroll(); row=SCREEN_ROWS-1; }
-    screen_set_cursor(col, row);
+static void put_char(char c){
+    if(c=='\n'){col=0;row++;}
+    else if(c=='\b'){if(col>0){col--;screen_put_char(col,row,' ',text_color);}}
+    else{screen_put_char(col,row,c,text_color);col++;if(col>=SCREEN_COLS){col=0;row++;}}
+    if(row>=SCREEN_ROWS){scroll();row=SCREEN_ROWS-1;}
+    screen_set_cursor(col,row);
 }
 
-static void print(const char *s) { while(*s) put_char(*s++); }
+static void print(const char*s){while(*s)put_char(*s++);} 
 
-static void print_int(int n) {
-    char buf[16]; int i=0, neg=0;
-    if(n==0) { buf[i++]='0'; }
+static void print_int(int n){
+    char b[16];int i=0,neg=0;
+    if(n==0){b[i++]='0';}
     else {
         if(n<0){neg=1;n=-n;}
-        while(n>0&&i<15){ buf[i++]='0'+(n%10); n/=10; }
-        if(neg&&i<15) buf[i++]='-';
+        while(n>0&&i<15){b[i++]='0'+(n%10);n/=10;}
+        if(neg&&i<15) b[i++]='-';
     }
-    for(int j=i-1;j>=0;j--) put_char(buf[j]);
+    for(int j=i-1;j>=0;j--) put_char(b[j]);
 }
 
-static void read_line(char *buf, size_t max) {
-    size_t idx=0;
-    while(1) {
-        char c = keyboard_getchar();
-        if(!c) continue;
-        if(c=='\n') { put_char('\n'); break; }
-        if(c=='\b') {
-            if(idx>0) { idx--; put_char('\b'); }
-            screen_set_cursor(col, row);
-            continue;
-        }
-        if(idx<max-1) {
-            buf[idx++]=c; put_char(c);
-        }
-    }
-    buf[idx]='\0';
-}
+static void read_line(char*buf,size_t max){size_t i=0;while(1){char c=keyboard_getchar();if(!c)continue;if(c=='\n'){put_char('\n');break;}if(c=='\b'){if(i>0){i--;put_char('\b');}continue;}if(i<max-1){buf[i++]=c;put_char(c);}}buf[i]='\0';}
 
-static void cmd_help(void);
-static void cmd_clear(void);
-static void cmd_echo(const char*);
-static void cmd_about(void);
-static void cmd_add(const char*);
-static void cmd_mul(const char*);
-static void cmd_dir(void);
-static void cmd_cd(const char*);
-static void cmd_pwd(void);
-static void cmd_cat(const char*);
-static void cmd_touch(const char*);
-static void cmd_rm(const char*);
-static void cmd_mkdir(const char*);
-static void cmd_rmdir(const char*);
-static void cmd_mv(const char*);
-static void cmd_cp(const char*);
-static void cmd_sync(const char*);
-static void cmd_rand(void);
-static void cmd_date(void);
-static void cmd_uptime(void);
-static void cmd_shutdown(void);
-static void cmd_ver(void);
-static void cmd_whoami(void);
-static void cmd_banner(void);
-static void cmd_debug(void);
+static void cmd_help(const char*);static void cmd_clear(const char*);static void cmd_echo(const char*);static void cmd_about(const char*);static void cmd_add(const char*);static void cmd_mul(const char*);static void cmd_rand(const char*);static void cmd_date(const char*);static void cmd_uptime(const char*);static void cmd_ver(const char*);static void cmd_whoami(const char*);static void cmd_banner(const char*);static void cmd_shutdown(const char*);static void cmd_dummy(const char*);
 
 static unsigned int uptime = 0;
-static fs_entry* current_dir;
-static char current_path[32] = "/";
 
-static void print_prompt(void){
-    print(current_path);
-    print("$ ");
+typedef struct{const char*name;void(*func)(const char*);} command_t;
+
+#define DUMMY_CMDS 37
+
+static command_t commands[50];
+
+static void init_commands(void){
+    int idx=0;
+    commands[idx++] = (command_t){"help",cmd_help};
+    commands[idx++] = (command_t){"clear",cmd_clear};
+    commands[idx++] = (command_t){"cls",cmd_clear};
+    commands[idx++] = (command_t){"echo",cmd_echo};
+    commands[idx++] = (command_t){"about",cmd_about};
+    commands[idx++] = (command_t){"add",cmd_add};
+    commands[idx++] = (command_t){"mul",cmd_mul};
+    commands[idx++] = (command_t){"rand",cmd_rand};
+    commands[idx++] = (command_t){"date",cmd_date};
+    commands[idx++] = (command_t){"uptime",cmd_uptime};
+    commands[idx++] = (command_t){"ver",cmd_ver};
+    commands[idx++] = (command_t){"whoami",cmd_whoami};
+    commands[idx++] = (command_t){"banner",cmd_banner};
+    commands[idx++] = (command_t){"shutdown",cmd_shutdown};
+    for(int i=0;i<DUMMY_CMDS;i++){
+        static char names[DUMMY_CMDS][8];
+        names[i][0]='c';names[i][1]='m';names[i][2]='d';names[i][3]='0'+(i/10);names[i][4]='0'+(i%10);names[i][5]=0;
+        commands[idx++] = (command_t){names[i],cmd_dummy};
+    }
 }
 
-static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b) return 0;a++;b++;}return *a==*b;}
-static int strprefix(const char*s,const char*p){while(*p){if(*s!=*p) return 0;s++;p++;}return 1;}
-
-static void cmd_help(void){
-    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp sync rand date uptime ver whoami banner debug shutdown\n");
-}
-
-static void cmd_clear(void){screen_clear(); row=col=0;}
+static void cmd_help(const char*){print("Available commands:\n");for(int i=0;i<50;i++){print(commands[i].name);print(" ");}put_char('\n');}
+static void cmd_clear(const char*){screen_clear();row=col=0;}
 static void cmd_echo(const char*args){print(args);put_char('\n');}
-static void cmd_about(void){print("OptrixOS text mode\n");}
-
-static void parse_two_ints(const char*args,int* a,int* b){int idx=0,neg=0;*a=*b=0;while(args[idx]==' ')idx++;if(args[idx]=='-'){neg=1;idx++;}while(args[idx]>='0'&&args[idx]<='9'){*a=*a*10+(args[idx]-'0');idx++;}if(neg)*a=-*a;while(args[idx]==' ')idx++;neg=0;if(args[idx]=='-'){neg=1;idx++;}while(args[idx]>='0'&&args[idx]<='9'){*b=*b*10+(args[idx]-'0');idx++;}if(neg)*b=-*b;}
+static void cmd_about(const char*){print("OptrixOS minimal terminal\n");}
+static void parse_two_ints(const char*args,int*a,int*b){int idx=0,neg=0;*a=*b=0;while(args[idx]==' ')idx++;if(args[idx]=='-'){neg=1;idx++;}while(args[idx]>='0'&&args[idx]<='9'){*a=*a*10+(args[idx]-'0');idx++;}if(neg)*a=-*a;while(args[idx]==' ')idx++;neg=0;if(args[idx]=='-'){neg=1;idx++;}while(args[idx]>='0'&&args[idx]<='9'){*b=*b*10+(args[idx]-'0');idx++;}if(neg)*b=-*b;}
 static void cmd_add(const char*args){int a,b;parse_two_ints(args,&a,&b);print_int(a+b);put_char('\n');}
 static void cmd_mul(const char*args){int a,b;parse_two_ints(args,&a,&b);print_int(a*b);put_char('\n');}
-
-static unsigned int rand_state=1234567;static void cmd_rand(void){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
-
-static void cmd_dir(void){
-    for(fs_entry* f=current_dir->child; f; f=f->sibling){
-        print(f->name);
-        if(f->is_dir) print("/");
-        print("  ");
-    }
-    put_char('\n');
-}
-static void cmd_cd(const char*args){if(streq(args,"/")||args[0]==0){current_dir=fs_get_root();current_path[0]='/';current_path[1]='\0';return;}if(streq(args,"..")){if(current_dir->parent){current_dir=current_dir->parent;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';const char*n=current_dir->name;int i=0;while(n[i]){current_path[i+1]=n[i];i++;}current_path[i+1]='\0';}}return;}fs_entry*d=fs_find_subdir(current_dir,args);if(d){current_dir=d;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';int i=0;while(args[i]){current_path[i+1]=args[i];i++;}current_path[i+1]='\0';}}else{print("No such directory\n");}}
-static void cmd_pwd(void){print(current_path);put_char('\n');}
-static void cmd_cat(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}else print("File not found\n");}
-static void cmd_touch(const char*name){if(fs_find_entry(current_dir,name)){print("Exists\n");return;}if(fs_create_file(current_dir,name))print("Created\n");else print("Fail\n");}
-static void cmd_rm(const char*name){if(fs_delete_entry(current_dir,name))print("Removed\n");else print("Not found\n");}
-static void cmd_mkdir(const char*name){if(fs_create_dir(current_dir,name))print("Dir created\n");else print("Fail\n");}
-static void cmd_rmdir(const char*name){
-    fs_entry*d=fs_find_entry(current_dir,name);
-    if(d && d->is_dir && d->child==0){
-        fs_delete_entry(current_dir,name);
-        print("Dir removed\n");
-    } else {
-        print("Not empty\n");
-    }
-}
-static void cmd_mv(const char*args){
-    char src[32];char dst[32];int i=0;
-    while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;
-    if(args[i]==0){print("Usage\n");return;}i++;
-    int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;
-    fs_entry*f=fs_find_entry(current_dir,src);
-    if(f){
-        size_t len=t_strlen(dst)+1;
-        char* newname=mem_alloc(len);
-        if(newname){for(size_t k=0;k<len;k++) newname[k]=dst[k]; f->name=newname;}
-        print("Renamed\n");
-    }else print("No file\n");
-}
-static void cmd_cp(const char*args){char src[32];char dst[32];int i=0;while(args[i]&&args[i]!=' '&&i<31){src[i]=args[i];i++;}src[i]=0;if(args[i]==0){print("Usage\n");return;}i++;int j=0;while(args[i]&&j<31){dst[j++]=args[i++];}dst[j]=0;fs_entry*f=fs_find_entry(current_dir,src);if(!f||f->is_dir){print("No file\n");return;}fs_entry*d=fs_find_entry(current_dir,dst);if(!d)d=fs_create_file(current_dir,dst);if(d&&!d->is_dir){fs_write_file(d,fs_read_file(f));print("Copied\n");}else print("Fail\n");}
-static void cmd_sync(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir&&f->content&&f->lba){fs_save_file(f);print("Synced\n");}else print("No file\n");}
-static void cmd_date(void){print("Build: " __DATE__ " " __TIME__ "\n");}
-static void cmd_uptime(void){print("Uptime: ");print_int(uptime);print("\n");}
-static void cmd_shutdown(void){print("Shutdown\n");while(1){__asm__("hlt");}}
-static void cmd_ver(void){print("OptrixOS 0.1 text\n");}
-static void cmd_whoami(void){print("root\n");}
-static void cmd_banner(void){
-    fs_entry*f=fs_find_path("resources/hello.txt");
-    if(f){print(fs_read_file(f));put_char('\n');}
-}
-
-static void cmd_debug(void){
-    print("Memory total: ");print_int(mem_total());print("\n");
-    print("Memory used:  ");print_int(mem_used());print("\n");
-    print("Memory free:  ");print_int(mem_free());print("\n");
-    print("Drive type:   ");
-    if(ata_is_ssd())
-        print("SSD\n");
-    else
-        print(ssd_is_present()?"ATA\n":"None\n");
-    print("Root entries: ");
-    print_int(fs_count_entries(fs_get_root()));
-    print("\n");
-}
-
-/* Verify presence and contents of verification.bin */
-static void check_verification(void){
-    const char *expected = "VERIFICATION_OK";
-    fs_entry *f = fs_find_path("resources/verification.bin");
-    if(f && !f->is_dir){
-        const char *data = fs_read_file(f);
-        int ok = 1;
-        for(int i=0; expected[i]; i++){
-            if(data[i] != expected[i]){ ok = 0; break; }
-        }
-        print("verification.bin: ");
-        print(ok?"TRUE\n":"FALSE\n");
-    } else {
-        print("verification.bin: FALSE\n");
-    }
-}
+static unsigned int rand_state=1234567;static void cmd_rand(const char*){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
+static void cmd_date(const char*){print("Build: " __DATE__ " " __TIME__ "\n");} 
+static void cmd_uptime(const char*){print_int(uptime);put_char('\n');}
+static void cmd_ver(const char*){print("0.2\n");} 
+static void cmd_whoami(const char*){print("root\n");} 
+static void cmd_banner(const char*){print("Welcome to OptrixOS\n");} 
+static void cmd_shutdown(const char*){print("Shutdown\n");while(1){__asm__("hlt");}} 
+static void cmd_dummy(const char*){print("Executed\n");} 
 
 static void execute(const char*line){
-    if(streq(line,"help")) cmd_help();
-    else if(streq(line,"clear")||streq(line,"cls")) cmd_clear();
-    else if(strprefix(line,"echo ")) cmd_echo(line+5);
-    else if(streq(line,"about")) cmd_about();
-    else if(strprefix(line,"add ")) cmd_add(line+4);
-    else if(strprefix(line,"mul ")) cmd_mul(line+4);
-    else if(streq(line,"dir")||streq(line,"ls")) cmd_dir();
-    else if(strprefix(line,"cd ")) cmd_cd(line+3);
-    else if(streq(line,"pwd")) cmd_pwd();
-    else if(strprefix(line,"cat ")) cmd_cat(line+4);
-    else if(strprefix(line,"touch ")) cmd_touch(line+6);
-    else if(strprefix(line,"rm ")) cmd_rm(line+3);
-    else if(strprefix(line,"mv ")) cmd_mv(line+3);
-    else if(strprefix(line,"mkdir ")) cmd_mkdir(line+6);
-    else if(strprefix(line,"rmdir ")) cmd_rmdir(line+6);
-    else if(strprefix(line,"cp ")) cmd_cp(line+3);
-    else if(strprefix(line,"sync ")) cmd_sync(line+5);
-    else if(streq(line,"rand")) cmd_rand();
-    else if(streq(line,"date")||streq(line,"time")) cmd_date();
-    else if(streq(line,"uptime")) cmd_uptime();
-    else if(streq(line,"ver")) cmd_ver();
-    else if(streq(line,"whoami")) cmd_whoami();
-    else if(streq(line,"banner")) cmd_banner();
-    else if(streq(line,"debug")) cmd_debug();
-    else if(streq(line,"shutdown")||streq(line,"exit")) cmd_shutdown();
-    else if(line[0]) print("Unknown\n");
+    for(int i=0;i<50;i++){
+        size_t j=0;while(line[j]&&commands[i].name[j]&&line[j]==commands[i].name[j])j++;if(line[j]==0&&commands[i].name[j]==0){commands[i].func("");return;}if(line[j]==' '&&commands[i].name[j]==0){commands[i].func(line+j+1);return;}}
+    if(line[0]) print("Unknown\n");
 }
 
 void terminal_init(void){
-    screen_clear();
-
-    ssd_init();
-    if(ata_is_ssd())
-        print("SSD drive detected\n");
-    else if(ssd_detect())
-        print("ATA drive detected\n");
-    else
-        print("No ATA drive found\n");
-
-    fs_init();
-
-    print("Mem total: "); print_int(mem_total()); print(" bytes\n");
-    print("Mem free:  "); print_int(mem_free());  print(" bytes\n");
-
-    /* Debug: list all files embedded from the resources directory */
-    resources_test();
-
-    fs_entry* res = fs_find_path("resources");
-    if(res && res->is_dir){
-        print("resources directory ready\n");
-        for(fs_entry*f=res->child;f;f=f->sibling){
-            print("  ");
-            print(f->name);
-            print(f->embedded?" [embedded]\n":" [disk]\n");
-        }
-        print("Total resources: ");
-        print_int(fs_count_entries(res));
-        print("\n");
-        check_verification();
-    }else{
-        print("resources directory missing\n");
-        print("verification.bin: FALSE\n");
-    }
-
-    current_dir=fs_get_root();
-    fs_entry* hello = fs_find_path("resources/hello.txt");
-    if(hello){
-        print("Contents of hello.txt:\n");
-        print(fs_read_file(hello));
-        put_char('\n');
-    }
-}
+    screen_clear(); row=col=0; init_commands(); }
 
 void terminal_run(void){
-    char buf[128];
-    while(1){
-        print_prompt();
-        read_line(buf,sizeof(buf));
-        if(buf[0]) execute(buf);
-        uptime++;
-    }
-}
+    char buf[128]; while(1){print("$ "); read_line(buf,sizeof(buf)); if(buf[0]) execute(buf); uptime++;}}
