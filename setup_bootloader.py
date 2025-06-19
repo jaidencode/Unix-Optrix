@@ -3,7 +3,6 @@ import sys
 import os
 import shutil
 import stat
-import struct
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -110,47 +109,6 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
-        img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
-    tmp_files.append(img_out)
-
-def make_disk_with_files(boot_bin, kernel_bin, img_out, resource_dir):
-    print("Creating disk image with embedded resources...")
-    boot = open(boot_bin, "rb").read()
-    if len(boot) != 512:
-        print("Error: Bootloader must be exactly 512 bytes!")
-        sys.exit(1)
-    kern = open(kernel_bin, "rb").read()
-    kernel_sectors = roundup(len(kern), 512) // 512
-    entries = []
-    lba = 2 + kernel_sectors  # boot + root table + kernel
-    file_data = b''
-    if os.path.isdir(resource_dir):
-        for name in sorted(os.listdir(resource_dir)):
-            path = os.path.join(resource_dir, name)
-            with open(path, 'rb') as f:
-                data = f.read()
-            size = len(data)
-            entries.append((name, lba, size))
-            padded = data + b'\0' * (roundup(size, 512) - size)
-            file_data += padded
-            lba += len(padded) // 512
-    root_bytes = struct.pack('<I', len(entries))
-    for name, lba_entry, size in entries:
-        nb = name.encode('ascii')[:15]
-        root_bytes += nb + b'\0' * (16 - len(nb))
-        root_bytes += struct.pack('<II', lba_entry, size)
-    root_bytes = root_bytes.ljust(512, b'\0')
-    total = 512 + len(root_bytes) + len(kern) + len(file_data)
-    min_size = 1474560
-    img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
-    with open(img_out, 'wb') as img:
-        img.write(boot)
-        img.write(root_bytes)
-        img.write(kern)
-        img.write(file_data)
         img.write(b'\0' * (img_size - total))
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
@@ -350,7 +308,7 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_disk_with_files(boot_bin, kernel_bin, DISK_IMG, RESOURCE_DIR)
+    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
