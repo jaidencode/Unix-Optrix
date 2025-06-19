@@ -118,7 +118,6 @@ const char* fs_read_file(fs_entry* file){
 
 void fs_init(void){
     ata_init();
-    ata_set_base(0x170);
     ata_read_sector(1, &root_table);
     root_dir.name="/";
     root_dir.is_dir=1;
