@@ -36,13 +36,10 @@ python3 setup_bootloader.py
 ```
 
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
-script outputs `disk.img` and `resources.img`. The latter contains all files
-from the `resources` folder. Attach both images as separate drives when running
-with QEMU. For example:
+script outputs `disk.img` which can be run with:
 
 ```bash
-qemu-system-x86_64 -drive format=raw,file=disk.img \
-                   -drive format=raw,file=resources.img
+qemu-system-x86_64 -hda disk.img
 ```
 
 ## Built-in terminal
