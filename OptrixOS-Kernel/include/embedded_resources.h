@@ -4,6 +4,7 @@
 
 typedef struct {
     const char* name;
+    const unsigned char* data;
     uint32_t size;
 } embedded_resource;
 

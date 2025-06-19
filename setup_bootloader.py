@@ -111,15 +111,21 @@ def generate_embedded_sources(resources):
     with open(EMBED_HEADER, "w") as fh:
         fh.write("#ifndef EMBEDDED_RESOURCES_H\n#define EMBEDDED_RESOURCES_H\n")
         fh.write("#include <stdint.h>\n\n")
-        fh.write("typedef struct { const char* name; uint32_t size; } embedded_resource;\n")
+        fh.write("typedef struct { const char* name; const unsigned char* data; uint32_t size; } embedded_resource;\n")
         fh.write(f"#define EMBEDDED_RESOURCE_COUNT {len(resources)}\n")
         fh.write("extern const embedded_resource embedded_resources[EMBEDDED_RESOURCE_COUNT];\n")
         fh.write("#endif\n")
+
     with open(EMBED_SOURCE, "w") as fc:
         fc.write('#include "embedded_resources.h"\n')
+        for idx, r in enumerate(resources):
+            array_name = f'resource_data_{idx}'
+            bytes_formatted = ','.join(f'0x{b:02x}' for b in r["data"])
+            fc.write(f'static const unsigned char {array_name}[] = {{{bytes_formatted}}};\n')
+            r['array'] = array_name
         fc.write("const embedded_resource embedded_resources[EMBEDDED_RESOURCE_COUNT] = {\n")
         for r in resources:
-            fc.write(f'    {{"{r["name"]}", {r["size"]}}},\n')
+            fc.write(f'    {{"{r["name"]}", {r["array"]}, {r["size"]}}},\n')
         fc.write("};\n")
     tmp_files.extend([EMBED_HEADER, EMBED_SOURCE])
 

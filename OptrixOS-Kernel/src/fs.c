@@ -193,6 +193,7 @@ void fs_init(void){
                     if(f){
                         f->lba = cur_lba;
                         f->size = embedded_resources[i].size;
+                        f->content = (char*)embedded_resources[i].data;
                         f->embedded = 1;
                     }
                     cur_lba += (embedded_resources[i].size + 511)/512;
