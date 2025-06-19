@@ -35,7 +35,7 @@ KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
-DISK_IMG = "disk.img"
+BOOT_IMG = "boot.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 
@@ -94,24 +94,24 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
-    print("Creating dynamically-sized disk image...")
+def make_boot_image(boot_bin, kernel_bin, img_out):
+    """Concatenate bootloader and kernel into a flat image for ISO boot."""
+    print("Creating boot image...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
     total = 512 + len(kern)
-    min_size = 1474560  # 1.44MB
     img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
-        img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+        if img_size > total:
+            img.write(b"\0" * (img_size - total))
+    print(f"Boot image size: {img_size} bytes ({img_size // 512} sectors).")
     tmp_files.append(img_out)
+    return img_size // 512
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
@@ -220,8 +220,8 @@ def ignore_git(dir, files):
     # Don't copy .git or any hidden folders/files
     return [f for f in files if f == ".git" or f.startswith('.')]
 
-def copy_tree_to_iso(tmp_iso_dir, proj_root):
-    """Create the ISO file tree with only the kernel folder and disk image."""
+def copy_tree_to_iso(tmp_iso_dir, proj_root, boot_img):
+    """Create the ISO file tree with only the kernel folder and boot image."""
     print("Copying project files to ISO structure...")
     if os.path.exists(tmp_iso_dir):
         shutil.rmtree(tmp_iso_dir, onerror=on_rm_error)
@@ -231,12 +231,12 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
     shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
 
-    # Place disk image at ISO root
-    if os.path.exists(DISK_IMG):
-        shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
+    # Place boot image at ISO root
+    if os.path.exists(boot_img):
+        shutil.copy(boot_img, os.path.join(tmp_iso_dir, "boot.img"))
 
 
-def make_iso_with_tree(tmp_iso_dir, iso_out):
+def make_iso_with_tree(tmp_iso_dir, iso_out, boot_img_sectors):
     print(f"Creating ISO using: {MKISOFS_EXE}")
     print(f"ISO should be written to: {iso_out}")
     if not os.path.isfile(MKISOFS_EXE):
@@ -248,7 +248,10 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", "disk.img",
+        "-b", "boot.img",
+        "-no-emul-boot",
+        "-boot-load-size", str(boot_img_sectors),
+        "-boot-info-table",
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
@@ -286,9 +289,9 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
-    copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
-    make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
+    boot_sectors = make_boot_image(boot_bin, kernel_bin, BOOT_IMG)
+    copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT, BOOT_IMG)
+    make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO, boot_sectors)
 
     print("\nCleaning up temporary build files... (ISO is NEVER deleted)")
     for f in tmp_files:

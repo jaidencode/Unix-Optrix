@@ -8,7 +8,7 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Clears a portion of RAM before loading the kernel.
 - Prompts for a kernel path (the input is currently ignored but demonstrates
   the interface).
-- Loads the kernel from the disk image into memory at `0x1000`.
+ - Loads the kernel from the boot image into memory at `0x1000`.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
 - Sets the classic 80x25 text mode and jumps directly to the kernel.
@@ -35,12 +35,9 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
-If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
-script outputs `disk.img` which can be run with:
-
-```bash
-qemu-system-x86_64 -hda disk.img
-```
+If `mkisofs` is available an ISO named `OptrixOS.iso` is created using a small
+boot image. The root file system lives entirely in memory so no floppy or hard
+disk image is required.
 
 ## Built-in terminal
 
