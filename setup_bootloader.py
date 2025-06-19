@@ -107,17 +107,17 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
 
     resources = []
     if os.path.isdir(RESOURCE_DIR):
-        for name in sorted(os.listdir(RESOURCE_DIR)):
-            path = os.path.join(RESOURCE_DIR, name)
-            if not os.path.isfile(path):
-                continue
-            with open(path, "rb") as fh:
-                data = fh.read()
-            size = len(data)
-            pad = roundup(size, 512)
-            data += b"\0" * (pad - size)
-            disk_name = f"resources/{name}"
-            resources.append({"name": disk_name, "data": data, "size": size})
+        for root, _, files in os.walk(RESOURCE_DIR):
+            for name in sorted(files):
+                path = os.path.join(root, name)
+                with open(path, "rb") as fh:
+                    data = fh.read()
+                size = len(data)
+                pad = roundup(size, 512)
+                data += b"\0" * (pad - size)
+                rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
+                disk_name = f"resources/{rel}"
+                resources.append({"name": disk_name, "data": data, "size": size})
 
     import struct
     ENTRY_STRUCT = "<32sII"
