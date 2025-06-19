@@ -2,6 +2,7 @@
 #include "keyboard.h"
 #include "screen.h"
 #include "fs.h"
+#include "disk.h"
 #include "mem.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -86,6 +87,7 @@ static void cmd_rmdir(const char*);
 static void cmd_mv(const char*);
 static void cmd_cp(const char*);
 static void cmd_rand(void);
+static void cmd_diskread(const char*);
 static void cmd_date(void);
 static void cmd_uptime(void);
 static void cmd_shutdown(void);
@@ -106,7 +108,7 @@ static int streq(const char*a,const char*b){while(*a&&*b){if(*a!=*b) return 0;a+
 static int strprefix(const char*s,const char*p){while(*p){if(*s!=*p) return 0;s++;p++;}return 1;}
 
 static void cmd_help(void){
-    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp rand date uptime ver whoami banner shutdown\n");
+    print("help clear cls echo about add mul dir cd pwd cat touch rm mv mkdir rmdir cp rand date uptime ver whoami banner diskread shutdown\n");
 }
 
 static void cmd_clear(void){screen_clear(); row=col=0;}
@@ -118,6 +120,17 @@ static void cmd_add(const char*args){int a,b;parse_two_ints(args,&a,&b);print_in
 static void cmd_mul(const char*args){int a,b;parse_two_ints(args,&a,&b);print_int(a*b);put_char('\n');}
 
 static unsigned int rand_state=1234567;static void cmd_rand(void){rand_state=rand_state*1103515245+12345;print_int(rand_state&0x7fffffff);put_char('\n');}
+
+static void cmd_diskread(const char*args){
+    int sector=0;int idx=0;while(args[idx]==' ')idx++;while(args[idx]>='0'&&args[idx]<='9'){sector=sector*10+(args[idx]-'0');idx++;}
+    uint8_t buf[512];
+    if(disk_read_sector((uint32_t)sector, buf)==0){
+        for(int i=0;i<16;i++){ char c = "0123456789ABCDEF"[(buf[i]>>4)&0xF]; put_char(c); c = "0123456789ABCDEF"[buf[i]&0xF]; put_char(c); put_char(' '); }
+        put_char('\n');
+    } else {
+        print("Read error\n");
+    }
+}
 
 static void cmd_dir(void){
     for(fs_entry* f=current_dir->child; f; f=f->sibling){
@@ -186,6 +199,7 @@ static void execute(const char*line){
     else if(streq(line,"ver")) cmd_ver();
     else if(streq(line,"whoami")) cmd_whoami();
     else if(streq(line,"banner")) cmd_banner();
+    else if(strprefix(line,"diskread ")) cmd_diskread(line+9);
     else if(streq(line,"shutdown")||streq(line,"exit")) cmd_shutdown();
     else if(line[0]) print("Unknown\n");
 }
