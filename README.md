@@ -35,6 +35,9 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
+The script embeds all files from `OptrixOS-Kernel/resources` into the
+disk image so they appear in the root directory when the OS boots.
+
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
 script outputs `disk.img` which can be run with:
 

@@ -123,8 +123,11 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
     entry_size = struct.calcsize(ENTRY_STRUCT)
 
     root_entries = []
+    # The bootloader always loads the kernel starting from sector 3, so the
+    # resource table must occupy two full sectors even when the actual data is
+    # smaller.  This keeps the kernel aligned to sector 3.
     root_bytes = 4 + entry_size * len(resources)
-    root_sectors = roundup(root_bytes, 512) // 512
+    root_sectors = max(2, roundup(root_bytes, 512) // 512)
 
     kernel_start = 1 + root_sectors
     resource_start = kernel_start + kernel_sectors
