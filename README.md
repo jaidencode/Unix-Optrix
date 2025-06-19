@@ -35,6 +35,9 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
+Set the `DISK_FREE_MB` environment variable to override the default
+100&nbsp;MB of free space reserved in the generated disk image.
+
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created using the
 `-hard-disk-boot` option so the full 100&nbsp;MB disk image can be booted
 directly. Otherwise the script outputs `disk.img` which can be run with:

@@ -298,8 +298,13 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    # Create a disk image with at least 100MB free space for user files
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG, free_space=100*1024*1024)
+    # Allow free space override via DISK_FREE_MB environment variable
+    free_mb_env = os.environ.get("DISK_FREE_MB")
+    try:
+        free_space = int(free_mb_env) * 1024 * 1024 if free_mb_env else 100*1024*1024
+    except ValueError:
+        free_space = 100*1024*1024
+    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG, free_space=free_space)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
