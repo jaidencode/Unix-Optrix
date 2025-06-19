@@ -73,13 +73,19 @@ The following commands are implemented:
 
 
 ### Resources
-Files inside `OptrixOS-Kernel/resources` are packed onto the disk image
-under `/resources`. Subdirectories are included as well. Even if no
-resource files are present the `/resources` directory will still be
-created so it is always available from within the OS.
+Files inside `OptrixOS-Kernel/resources` are now stored on a separate
+disk image named `resources.img`. The bootable ISO no longer contains
+these files; instead the OS expects a second drive attached when
+running under the emulator. The filesystem loader looks for the
+resources on the secondary ATA channel and mounts them automatically.
 
-The build script copies this directory to the root of the ISO so any
-files placed there appear under `/resources` when the system boots.
+To include your own resource files simply place them in the
+`OptrixOS-Kernel/resources` directory before running the build script.
+Launch QEMU with the generated `resources.img` as an additional drive:
+
+```bash
+qemu-system-x86_64 -cdrom OptrixOS.iso -hdb resources.img
+```
 
 `setup_bootloader.py` resolves the resources directory using its own
 location so it can be invoked from any path and still include the files
