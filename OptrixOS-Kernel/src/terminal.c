@@ -95,7 +95,28 @@ static void cmd_banner(void);
 
 static unsigned int uptime = 0;
 static fs_entry* current_dir;
-static char current_path[32] = "/";
+static char current_path[128] = "/";
+
+static void update_current_path(void){
+    int depth = 0;
+    fs_entry* stack[16];
+    fs_entry* tmp = current_dir;
+    while(tmp && tmp != fs_get_root() && depth < 16){
+        stack[depth++] = tmp;
+        tmp = tmp->parent;
+    }
+    int pos = 0;
+    current_path[pos++] = '/';
+    for(int i = depth-1; i >= 0; i--){
+        const char* n = stack[i]->name;
+        while(*n && pos < (int)sizeof(current_path)-1){
+            current_path[pos++] = *n++;
+        }
+        if(i>0 && pos < (int)sizeof(current_path)-1)
+            current_path[pos++] = '/';
+    }
+    current_path[pos] = '\0';
+}
 
 static void print_prompt(void){
     print(current_path);
@@ -127,7 +148,26 @@ static void cmd_dir(void){
     }
     put_char('\n');
 }
-static void cmd_cd(const char*args){if(streq(args,"/")||args[0]==0){current_dir=fs_get_root();current_path[0]='/';current_path[1]='\0';return;}if(streq(args,"..")){if(current_dir->parent){current_dir=current_dir->parent;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';const char*n=current_dir->name;int i=0;while(n[i]){current_path[i+1]=n[i];i++;}current_path[i+1]='\0';}}return;}fs_entry*d=fs_find_subdir(current_dir,args);if(d){current_dir=d;if(current_dir==fs_get_root()){current_path[0]='/';current_path[1]='\0';}else{current_path[0]='/';int i=0;while(args[i]){current_path[i+1]=args[i];i++;}current_path[i+1]='\0';}}else{print("No such directory\n");}}
+static void cmd_cd(const char*args){
+    if(streq(args,"/")||args[0]==0){
+        current_dir = fs_get_root();
+        update_current_path();
+        return;
+    }
+    if(streq(args,"..")){
+        if(current_dir->parent)
+            current_dir = current_dir->parent;
+        update_current_path();
+        return;
+    }
+    fs_entry* d = fs_find_subdir(current_dir, args);
+    if(d){
+        current_dir = d;
+        update_current_path();
+    }else{
+        print("No such directory\n");
+    }
+}
 static void cmd_pwd(void){print(current_path);put_char('\n');}
 static void cmd_cat(const char*name){fs_entry*f=fs_find_entry(current_dir,name);if(f&&!f->is_dir){print(fs_read_file(f));put_char('\n');}else print("File not found\n");}
 static void cmd_touch(const char*name){if(fs_find_entry(current_dir,name)){print("Exists\n");return;}if(fs_create_file(current_dir,name))print("Created\n");else print("Fail\n");}
@@ -194,6 +234,7 @@ void terminal_init(void){
     screen_clear();
     fs_init();
     current_dir=fs_get_root();
+    update_current_path();
     fs_entry* logo = fs_find_entry(current_dir, "logo.txt");
     if(logo) {
         print(fs_read_file(logo));
