@@ -218,7 +218,10 @@ static void execute(const char*line){
 void terminal_init(void){
     screen_clear();
 
-    if(ata_detect())
+    ata_init();
+    if(ata_is_ssd())
+        print("SSD drive detected\n");
+    else if(ata_detect())
         print("ATA drive detected\n");
     else
         print("No ATA drive found\n");

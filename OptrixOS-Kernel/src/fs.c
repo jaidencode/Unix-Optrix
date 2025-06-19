@@ -142,7 +142,6 @@ void fs_save_file(fs_entry* file){
 }
 
 void fs_init(void){
-    ata_init();
 
     root_dir.name="/";
     root_dir.is_dir=1;

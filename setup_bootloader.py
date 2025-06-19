@@ -35,11 +35,20 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 KERNEL_PROJECT_ROOT = os.path.join(SCRIPT_DIR, "OptrixOS-Kernel")
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
-DISK_IMG = "disk.img"
+DISK_IMG = "ssd.img"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 EMBED_HEADER = os.path.join(KERNEL_PROJECT_ROOT, "include", "embedded_resources.h")
 EMBED_SOURCE = os.path.join(KERNEL_PROJECT_ROOT, "src", "embedded_resources.c")
+
+VERIFICATION_CONTENT = b"VERIFICATION_OK"
+
+def ensure_verification_file():
+    vf = os.path.join(KERNEL_PROJECT_ROOT, "resources", "verification.bin")
+    if not os.path.exists(vf) or open(vf, "rb").read() != VERIFICATION_CONTENT:
+        os.makedirs(os.path.dirname(vf), exist_ok=True)
+        with open(vf, "wb") as fh:
+            fh.write(VERIFICATION_CONTENT)
 
 tmp_files = []
 
@@ -301,7 +310,7 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
 
     # Place disk image at ISO root
     if os.path.exists(DISK_IMG):
-        shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
+        shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "ssd.img"))
 
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
@@ -316,7 +325,7 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
-        "-b", "disk.img",
+        "-b", "ssd.img",
         "-R", "-J", "-l",
         tmp_iso_dir
     ]
@@ -345,6 +354,7 @@ def cleanup():
 
 def main():
     print("Collecting all project source files...")
+    ensure_verification_file()
     resources = collect_resources()
     # Resources are stored on the disk image only. The kernel no longer embeds
     # the raw file data, so generate an empty resource table for compilation.
