@@ -140,6 +140,14 @@ const char* fs_read_file(fs_entry* file){
     return buf;
 }
 
+void fs_save_file(fs_entry* file){
+    if(!file || file->is_dir || file->lba==0 || !file->content)
+        return;
+    uint32_t sectors = (file->size + 511) / 512;
+    for(uint32_t i=0;i<sectors;i++)
+        ata_write_sector(file->lba + i, file->content + i*512);
+}
+
 void fs_init(void){
     ata_init();
 
