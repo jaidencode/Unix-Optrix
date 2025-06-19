@@ -31,8 +31,8 @@ if not os.path.isfile(MKISOFS_EXE):
     MKISOFS_EXE = shutil.which("mkisofs") or "mkisofs"
 
 # Only build sources inside the kernel directory
-KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+KERNEL_PROJECT_ROOT = os.path.join(SCRIPT_DIR, "OptrixOS-Kernel")
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"

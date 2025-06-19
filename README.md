@@ -73,3 +73,7 @@ The following commands are implemented:
 
 ### Resources
 Files inside `OptrixOS-Kernel/resources` are packed onto the disk image under `/resources`. On boot the kernel prints `hello.txt` from this directory to demonstrate reading files from the ISO.
+
+`setup_bootloader.py` now resolves the resources directory using its own
+location so it can be invoked from any path and still include the files
+correctly.
