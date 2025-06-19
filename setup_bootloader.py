@@ -221,17 +221,14 @@ def ignore_git(dir, files):
     return [f for f in files if f == ".git" or f.startswith('.')]
 
 def copy_tree_to_iso(tmp_iso_dir, proj_root):
-    """Create the ISO file tree with only the kernel folder and disk image."""
+    """Create the ISO file tree with just the bootable disk image."""
     print("Copying project files to ISO structure...")
     if os.path.exists(tmp_iso_dir):
         shutil.rmtree(tmp_iso_dir, onerror=on_rm_error)
     os.makedirs(tmp_iso_dir, exist_ok=True)
 
-    # Copy the entire kernel folder
-    kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
-    shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
-
-    # Place disk image at ISO root
+    # Only place the disk image at the ISO root. Avoid copying the entire
+    # project folder so the ISO does not contain source or resource files.
     if os.path.exists(DISK_IMG):
         shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
 
