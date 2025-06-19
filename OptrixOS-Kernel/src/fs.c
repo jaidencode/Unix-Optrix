@@ -122,11 +122,13 @@ void fs_init(void){
 
     unsigned char first[512];
     ata_read_sector(1, first);
-    disk_file_count = *((uint32_t*)first);
+    uint32_t* meta = (uint32_t*)first;
+    disk_file_count = meta[0];
+    uint32_t root_sectors = meta[1];
 
     unsigned int entry_bytes = disk_file_count * sizeof(disk_file);
-    unsigned int table_bytes = 4 + entry_bytes;
-    unsigned int sectors = (table_bytes + 511) / 512;
+    unsigned int table_bytes = 12 + entry_bytes;
+    unsigned int sectors = root_sectors;
 
     unsigned char* buf = mem_alloc(sectors * 512);
     if(!buf) return;
@@ -139,7 +141,7 @@ void fs_init(void){
         }
     }
 
-    disk_files = (disk_file*)(buf + 4);
+    disk_files = (disk_file*)(buf + 12);
 
     root_dir.name="/";
     root_dir.is_dir=1;

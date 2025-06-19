@@ -1,9 +1,7 @@
 BITS 16
 ORG 0x7C00
 
-%ifndef KERNEL_SECTORS
-%define KERNEL_SECTORS 1
-%endif
+
 
 start:
     cli
@@ -30,13 +28,30 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at third sector)
+    ; read first filesystem sector to obtain kernel size
+    mov bx, 0x0600    ; buffer for root sector
+    mov dl, [BOOT_DRIVE]
+    mov dh, 0
+    mov ah, 0x02
+    mov al, 1         ; read 1 sector
+    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    int 0x13
+    mov si, bx
+    mov ax, [si+4]    ; root sector count
+    mov [root_sectors], ax
+    mov ax, [si+8]    ; kernel sector count
+    mov [kernel_sectors], ax
+    mov ax, [root_sectors]
+    add ax, 2         ; boot sector + root sectors -> first kernel sector
+    mov [kernel_start], ax
+
+    ; load kernel using values read from the filesystem
     mov bx, 0x1000    ; ES:BX points to load address
     mov dl, [BOOT_DRIVE]
     mov dh, 0         ; head
     mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0003    ; CH=0, CL=3 (sector 3)
+    mov al, [kernel_sectors]
+    mov cx, [kernel_start]
     int 0x13
 
     ; setup basic GDT for protected mode
@@ -75,6 +90,10 @@ gdt_end:
 gdt_desc:
     dw gdt_end - gdt_start - 1
     dd gdt_start
+
+root_sectors:   dw 0
+kernel_sectors: dw 0
+kernel_start:   dw 0
 
 BOOT_DRIVE: db 0
 

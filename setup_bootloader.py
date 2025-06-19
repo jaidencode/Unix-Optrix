@@ -123,7 +123,7 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
     entry_size = struct.calcsize(ENTRY_STRUCT)
 
     root_entries = []
-    root_bytes = 4 + entry_size * len(resources)
+    root_bytes = 12 + entry_size * len(resources)
     root_sectors = roundup(root_bytes, 512) // 512
 
     kernel_start = 1 + root_sectors
@@ -136,7 +136,7 @@ def make_disk_with_resources(boot_bin, kernel_bin, img_out):
         nb += b"\0" * (32 - len(nb))
         root_entries.append(struct.pack(ENTRY_STRUCT, nb, res["lba"], res["size"]))
 
-    root = struct.pack("<I", len(resources)) + b"".join(root_entries)
+    root = struct.pack("<III", len(resources), root_sectors, kernel_sectors) + b"".join(root_entries)
     root += b"\0" * (root_sectors*512 - len(root))
 
     total = 512 + root_sectors*512 + len(kernel_padded) + sum(len(r["data"]) for r in resources)
@@ -260,11 +260,8 @@ def build_kernel(asm_files, c_files, out_bin):
     run(link_cmd_bin)
     tmp_files.append(out_bin)
 
-    kernel_bytes = os.path.getsize(out_bin)
-    sectors = roundup(kernel_bytes, 512) // 512
-
     boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
+    assemble(bootloader_src, boot_bin, fmt="bin")
 
     return boot_bin, out_bin
 
