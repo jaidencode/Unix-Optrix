@@ -1,17 +1,11 @@
 #include "fs.h"
 #include "mem.h"
 #include "disk.h"
+#include "embedded_resources.h"
 #include <stddef.h>
 #include <stdint.h>
 
-typedef struct {
-    char name[32];
-    uint32_t lba;
-    uint32_t size;
-} disk_file;
-
-static disk_file* disk_files = NULL;
-static uint32_t disk_file_count = 0;
+extern uint32_t end; /* provided by linker */
 static fs_entry root_dir;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
@@ -151,29 +145,6 @@ void fs_save_file(fs_entry* file){
 void fs_init(void){
     ata_init();
 
-    unsigned char first[512];
-    ata_read_sector(1, first);
-    uint32_t* meta = (uint32_t*)first;
-    disk_file_count = meta[0];
-    uint32_t root_sectors = meta[1];
-
-    unsigned int entry_bytes = disk_file_count * sizeof(disk_file);
-    unsigned int table_bytes = 12 + entry_bytes;
-    unsigned int sectors = root_sectors;
-
-    unsigned char* buf = mem_alloc(sectors * 512);
-    if(!buf) return;
-
-    for(unsigned int i=0;i<sectors;i++){
-        if(i==0){
-            for(int j=0;j<512;j++) buf[j] = first[j];
-        }else{
-            ata_read_sector(1+i, buf + i*512);
-        }
-    }
-
-    disk_files = (disk_file*)(buf + 12);
-
     root_dir.name="/";
     root_dir.is_dir=1;
     root_dir.parent=NULL;
@@ -184,8 +155,17 @@ void fs_init(void){
     root_dir.size=0;
     root_dir.embedded=0;
 
-    for(uint32_t i=0;i<disk_file_count;i++){
-        const char* name = disk_files[i].name;
+    uint32_t kernel_bytes = (uint32_t)&end - 0x1000;
+    uint32_t kernel_sectors = (kernel_bytes + 511) / 512;
+
+    uint32_t entry_bytes = EMBEDDED_RESOURCE_COUNT * sizeof(embedded_resource);
+    uint32_t table_bytes = 12 + entry_bytes;
+    uint32_t root_sectors = (table_bytes + 511) / 512;
+
+    uint32_t cur_lba = 1 + root_sectors + kernel_sectors;
+
+    for(uint32_t i=0;i<EMBEDDED_RESOURCE_COUNT;i++){
+        const char* name = embedded_resources[i].name;
         fs_entry* dir = &root_dir;
         char part[32];
         size_t pi=0;
@@ -196,9 +176,11 @@ void fs_init(void){
                 if(c==0){
                     fs_entry* f = fs_create_file(dir, part);
                     if(f){
-                        f->lba = disk_files[i].lba;
-                        f->size = disk_files[i].size;
+                        f->lba = cur_lba;
+                        f->size = embedded_resources[i].size;
+                        f->embedded = 1;
                     }
+                    cur_lba += (embedded_resources[i].size + 511)/512;
                     break;
                 }else{
                     fs_entry* sub = fs_find_subdir(dir, part);
