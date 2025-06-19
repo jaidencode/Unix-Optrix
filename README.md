@@ -36,10 +36,10 @@ python3 setup_bootloader.py
 ```
 
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
-script outputs `disk.img` which can be run with:
+script outputs `boot.img` and `resources.img`. Run them with:
 
 ```bash
-qemu-system-x86_64 -hda disk.img
+qemu-system-x86_64 -hda boot.img -hdb resources.img
 ```
 
 ## Built-in terminal
