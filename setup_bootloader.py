@@ -297,6 +297,11 @@ def main():
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
+    # Ensure disk driver source is present
+    if any(f.endswith('disk.c') for f in c_files):
+        print('Disk driver source detected')
+    else:
+        print('Warning: disk.c not found, disk driver missing')
     res_c = generate_resource_files()
     if res_c and res_c not in c_files:
         c_files.append(res_c)
