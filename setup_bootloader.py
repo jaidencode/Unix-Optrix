@@ -35,20 +35,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 KERNEL_PROJECT_ROOT = os.path.join(SCRIPT_DIR, "OptrixOS-Kernel")
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
-FILESYSTEM_BIN = "filesystem.bit"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
-EMBED_HEADER = os.path.join(KERNEL_PROJECT_ROOT, "include", "embedded_resources.h")
-EMBED_SOURCE = os.path.join(KERNEL_PROJECT_ROOT, "src", "embedded_resources.c")
 
-VERIFICATION_CONTENT = b"VERIFICATION_OK"
-
-def ensure_verification_file():
-    vf = os.path.join(KERNEL_PROJECT_ROOT, "resources", "verification.bin")
-    if not os.path.exists(vf) or open(vf, "rb").read() != VERIFICATION_CONTENT:
-        os.makedirs(os.path.dirname(vf), exist_ok=True)
-        with open(vf, "wb") as fh:
-            fh.write(VERIFICATION_CONTENT)
 
 tmp_files = []
 
@@ -102,64 +91,9 @@ def compile_c(src, out):
     ])
     tmp_files.append(out)
 
-def collect_resources():
-    resources = []
-    if os.path.isdir(RESOURCE_DIR):
-        for root, _, files in os.walk(RESOURCE_DIR):
-            for name in sorted(files):
-                path = os.path.join(root, name)
-                with open(path, "rb") as fh:
-                    data = fh.read()
-                rel = os.path.relpath(path, RESOURCE_DIR).replace("\\", "/")
-                resources.append({"name": f"resources/{rel}", "data": data, "size": len(data)})
-    return resources
-
-def generate_embedded_sources(resources):
-    os.makedirs(os.path.dirname(EMBED_HEADER), exist_ok=True)
-    os.makedirs(os.path.dirname(EMBED_SOURCE), exist_ok=True)
-    with open(EMBED_HEADER, "w") as fh:
-        fh.write("#ifndef EMBEDDED_RESOURCES_H\n#define EMBEDDED_RESOURCES_H\n")
-        fh.write("#include <stdint.h>\n\n")
-        fh.write("typedef struct { const char* name; const unsigned char* data; uint32_t size; } embedded_resource;\n")
-        fh.write(f"#define EMBEDDED_RESOURCE_COUNT {len(resources)}\n")
-        fh.write("extern const embedded_resource embedded_resources[EMBEDDED_RESOURCE_COUNT];\n")
-        fh.write("#endif\n")
-
-    with open(EMBED_SOURCE, "w") as fc:
-        fc.write('#include "embedded_resources.h"\n')
-        for idx, r in enumerate(resources):
-            array_name = f'resource_data_{idx}'
-            bytes_formatted = ','.join(f'0x{b:02x}' for b in r["data"])
-            fc.write(f'static const unsigned char {array_name}[] = {{{bytes_formatted}}};\n')
-            r['array'] = array_name
-        fc.write("const embedded_resource embedded_resources[EMBEDDED_RESOURCE_COUNT] = {\n")
-        for r in resources:
-            fc.write(f'    {{"{r["name"]}", {r["array"]}, {r["size"]}}},\n')
-        fc.write("};\n")
-    tmp_files.extend([EMBED_HEADER, EMBED_SOURCE])
-
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_filesystem_bin(resources, fs_out):
-    print("Creating filesystem binary...")
-    import struct
-    ENTRY_STRUCT = "<32sII"
-    entries = []
-    data = bytearray()
-    for r in resources:
-        offset = len(data)
-        data.extend(r["data"])
-        name = r["name"].encode("ascii", errors="ignore")[:31]
-        name += b"\0" * (32 - len(name))
-        entries.append(struct.pack(ENTRY_STRUCT, name, offset, r["size"]))
-    header = struct.pack("<III", len(entries), 0, 0) + b"".join(entries)
-    with open(fs_out, "wb") as fh:
-        fh.write(header)
-        fh.write(data)
-    print(f"filesystem.bit created with {len(entries)} entries")
-    tmp_files.append(fs_out)
-    return fs_out
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
@@ -176,28 +110,6 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
-# === RESOURCE EMBEDDING ===
-# Files within the resources directory are copied directly onto the disk image
-# and are no longer converted into C source.
-RESOURCE_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
-
-def objcopy_binary(input_path, output_obj):
-    if not os.path.exists(input_path):
-        print(f"ERROR: Resource not found: {input_path}")
-        sys.exit(1)
-    # Only rebuild if changed
-    if not os.path.exists(output_obj) or os.path.getmtime(output_obj) < os.path.getmtime(input_path):
-        print(f"Embedding resource: {input_path} -> {output_obj}")
-        result = subprocess.run([
-            "objcopy", "-I", "binary", "-O", "elf32-i386", "-B", "i386",
-            input_path, output_obj
-        ], capture_output=True, text=True)
-        if result.returncode != 0:
-            print("objcopy failed:", result.stdout, result.stderr)
-            sys.exit(1)
-        tmp_files.append(output_obj)
-    else:
-        print(f"Resource already up to date: {output_obj}")
 
 
 def build_kernel(asm_files, c_files, out_bin, extra_objs=None):
@@ -266,7 +178,7 @@ def ignore_git(dir, files):
     return [f for f in files if f == ".git" or f.startswith('.')]
 
 def copy_tree_to_iso(tmp_iso_dir, proj_root):
-    """Create the ISO file tree with the kernel folder and filesystem binary."""
+    """Create the ISO file tree with the kernel folder and boot image."""
     print("Copying project files to ISO structure...")
     if os.path.exists(tmp_iso_dir):
         shutil.rmtree(tmp_iso_dir, onerror=on_rm_error)
@@ -277,14 +189,7 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     shutil.copytree(proj_root, kernel_dest, ignore=ignore_git, dirs_exist_ok=True)
 
 
-    # Copy resources folder to the ISO so the kernel can access files
-    res_src = os.path.join(proj_root, "resources")
-    if os.path.isdir(res_src):
-        shutil.copytree(res_src, os.path.join(tmp_iso_dir, "resources"), dirs_exist_ok=True)
-
-    # Copy filesystem binary and boot image
-    if os.path.exists(FILESYSTEM_BIN):
-        shutil.copy(FILESYSTEM_BIN, os.path.join(tmp_iso_dir, FILESYSTEM_BIN))
+    # Copy boot image
     if os.path.exists("boot.img"):
         shutil.copy("boot.img", os.path.join(tmp_iso_dir, "boot.img"))
 
@@ -331,11 +236,8 @@ def cleanup():
 
 def main():
     print("Collecting all project source files...")
-    ensure_verification_file()
-    resources = collect_resources()
-    # Resources are stored on the disk image only. The kernel no longer embeds
-    # the raw file data, so generate an empty resource table for compilation.
-    generate_embedded_sources([])
+    # No filesystem or embedded resources are used.
+    resources = []
 
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
@@ -347,11 +249,8 @@ def main():
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
 
     ensure_obj_dir()
-    fs_bin = make_filesystem_bin(resources, FILESYSTEM_BIN)
-    fs_obj = os.path.join(OBJ_DIR, 'filesystem.o')
-    objcopy_binary(fs_bin, fs_obj)
 
-    boot_bin, kernel_bin, boot_img = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN, extra_objs=[fs_obj])
+    boot_bin, kernel_bin, boot_img = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
