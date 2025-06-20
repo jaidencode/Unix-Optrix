@@ -5,3 +5,4 @@ void system_idle(void){
     driver_update_all();
     timer_tick();
 }
+void system_idle(void){ driver_update_all(); }

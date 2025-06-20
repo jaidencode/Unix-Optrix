@@ -9,3 +9,4 @@ void util_beep(void){
     for(volatile int i=0;i<10000;i++);
     outb(0x61, tmp & 0xFC);
 }
+void util_beep(void){ /* placeholder */ }
