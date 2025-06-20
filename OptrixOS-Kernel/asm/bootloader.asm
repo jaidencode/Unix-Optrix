@@ -1,5 +1,7 @@
 BITS 16
 ORG 0x7C00
+%define PART_TABLE_ADDR 0x9000
+%define MBR_BUFFER     0x7E00
 
 %ifndef KERNEL_SECTORS
 %define KERNEL_SECTORS 1
@@ -30,13 +32,37 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel using BIOS LBA read (sector 2 onwards)
+    ; read MBR to get partition table
+    mov word [dap_count], 1
+    mov ax, MBR_BUFFER
+    mov [dap_offset], ax
+    mov word [dap_segment], 0x0000
+    mov dword [dap_lba], 0
+    mov dword [dap_lba+4], 0
+    mov si, kernel_load_dap
+    mov dl, [BOOT_DRIVE]
+    mov ah, 0x42
+    int 0x13
+
+    ; copy first two partition entries for the kernel
+    mov si, MBR_BUFFER + 0x1BE
+    mov di, PART_TABLE_ADDR
+    mov cx, 32
+    rep movsb
+
+    ; partition start LBA for kernel in eax
+    mov si, PART_TABLE_ADDR
+    mov eax, [si+8]
+    mov [PART_TABLE_ADDR+64], eax ; store for loader
+
+    ; load kernel using BIOS LBA read from partition
     mov ax, KERNEL_SECTORS
     mov [dap_count], ax
     mov ax, 0x1000
     mov [dap_offset], ax
     mov word [dap_segment], 0x0000
-    mov dword [dap_lba], 1
+    mov eax, [PART_TABLE_ADDR+64]
+    mov [dap_lba], eax
     mov dword [dap_lba+4], 0
     mov si, kernel_load_dap
     mov dl, [BOOT_DRIVE]
@@ -91,6 +117,17 @@ dap_lba:      dq 0
 
 bootmsg: db 'Loading OptrixOS...',0
 
-    ; boot signature
+    ; partition table (2 entries used)
+    times 446-($-$$) db 0
+    ; partition 1: kernel partition
+    db 0x80,0,0,0,0x0B,0,0,0
+    dd 1               ; start LBA
+    dd KERNEL_SECTORS  ; sector count
+    ; partition 2: storage
+    db 0,0,0,0,0x0B,0,0,0
+    dd 1+KERNEL_SECTORS
+    dd 204800          ; ~100MB
+    times 32 db 0      ; remaining entries
+    ; pad and signature
     times 510-($-$$) db 0
     dw 0xAA55

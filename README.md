@@ -36,8 +36,9 @@ python3 setup_bootloader.py
 ```
 
 The build now also creates a blank 100&nbsp;MB storage image named
-`drive_c.img`. The build process now packages this image inside the ISO and
-removes the temporary file afterwards.
+`drive_c.img`. A minimal partition table is written so the bootloader can
+locate both the kernel and a data partition. The image is packaged inside the
+ISO and the temporary file removed afterwards.
 
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Boot the
 system with:

@@ -95,23 +95,42 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
-    print("Creating dynamically-sized disk image...")
-    boot = open(boot_bin, "rb").read()
+def make_dynamic_img(boot_bin, kernel_bin, storage_img, img_out):
+    print("Creating partitioned disk image...")
+    boot = bytearray(open(boot_bin, "rb").read())
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
-    min_size = 1474560  # 1.44MB
-    img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
+
+    kernel_sectors = roundup(len(kern), 512) // 512
+    storage_size = os.path.getsize(storage_img) if os.path.exists(storage_img) else 0
+    storage_sectors = roundup(storage_size, 512) // 512
+
+    img_size = 512 + kernel_sectors * 512 + storage_sectors * 512
+    if img_size < 1474560:
+        img_size = 1474560
+
+    # build disk image
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
-        img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+        if storage_size:
+            with open(storage_img, "rb") as s:
+                img.write(s.read())
+        img.write(b"\0" * (img_size - 512 - len(kern) - storage_size))
+
+    # patch partition table directly in the image
+    with open(img_out, "r+b") as img:
+        img.seek(446)
+        img.write(bytes([0x80,0,0,0,0x0B,0,0,0]))
+        img.write((1).to_bytes(4, 'little'))
+        img.write(kernel_sectors.to_bytes(4, 'little'))
+        img.write(bytes([0,0,0,0,0x0B,0,0,0]))
+        img.write((1+kernel_sectors).to_bytes(4, 'little'))
+        img.write(storage_sectors.to_bytes(4, 'little'))
+        img.write(b"\0" * 32)
+    print(f"Disk image ({img_size // 1024} KB) created with partitions.")
     tmp_files.append(img_out)
 
 def make_storage_img(img_out, size_mb=100):
@@ -295,8 +314,8 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
     make_storage_img(STORAGE_IMG, 100)
+    make_dynamic_img(boot_bin, kernel_bin, STORAGE_IMG, DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
