@@ -35,6 +35,11 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
+All files placed in the `OptrixOS-Kernel/resources` directory are
+automatically embedded into the initial RAM filesystem and will be
+available from the shell after booting. This allows adding arbitrary
+files without modifying the build scripts.
+
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
 script outputs `disk.img` which can be run with:
 
