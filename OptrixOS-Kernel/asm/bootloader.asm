@@ -1,9 +1,9 @@
 BITS 16
 ORG 0x7C00
 
-%ifndef KERNEL_SECTORS
-%define KERNEL_SECTORS 1
-%endif
+%define PVD_BUF   0x0500
+%define DIR_BUF   0x0600
+%define DAP_BUF   0x0400
 
 start:
     cli
@@ -12,43 +12,124 @@ start:
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
+    mov [BOOT_DRIVE], dl
 
-    ; Set 80x25 text mode
+    ; Set text mode
     mov ax, 0x0003
     int 0x10
 
-    ; display boot message
+    ; print boot message
     mov si, bootmsg
-.printloop:
+.print:
     lodsb
     or al, al
-    jz .doneprint
+    jz .done
     mov ah, 0x0E
-    mov bh, 0x00
+    mov bh, 0
     mov bl, 0x1E
     int 0x10
-    jmp .printloop
-.doneprint:
+    jmp .print
+.done:
 
-    ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
-    mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
-    int 0x13
+    ; read Primary Volume Descriptor (LBA 16)
+    mov ax, 0
+    mov es, ax
+    mov bx, PVD_BUF
+    mov eax, 16
+    mov cx, 1
+    call read_lba
 
-    ; setup basic GDT for protected mode
+    ; root directory extent
+    mov si, PVD_BUF + 0x9C + 2
+    mov eax, [si]
+    mov [ROOT_LBA], eax
+    mov si, PVD_BUF + 0x9C + 10
+    mov eax, [si]
+    mov [ROOT_SIZE], eax
+
+    ; load first sector of root directory
+    mov ax, 0
+    mov es, ax
+    mov bx, DIR_BUF
+    mov eax, [ROOT_LBA]
+    mov cx, 1
+    call read_lba
+
+    ; find kernel file in directory
+    mov si, DIR_BUF
+.search:
+    mov bl, [si]
+    cmp bl, 0
+    je kernel_not_found
+    mov di, si
+    mov al, [di+32]
+    mov bp, di
+    add bp, 33
+    push si
+    mov si, kernel_name
+    mov cx, kernel_name_len
+    mov di, bp
+    repe cmpsb
+    pop si
+    je found_kernel
+    movzx bx, bl
+    add si, bx
+    jmp .search
+
+kernel_not_found:
+    jmp hang
+
+found_kernel:
+    mov eax, [si+2]
+    mov [KERNEL_LBA], eax
+    mov eax, [si+10]
+    mov [KERNEL_SIZE], eax
+
+    ; load kernel using LBA read
+    mov ax, 0
+    mov es, ax
+    mov bx, 0x1000
+    mov eax, [KERNEL_LBA]
+    mov ecx, [KERNEL_SIZE]
+    add ecx, 2047
+    shr ecx, 11
+    call read_lba
+
+    ; setup GDT and enter protected mode
     lgdt [gdt_desc]
-
-    ; enable protected mode
     mov eax, cr0
     or eax, 1
     mov cr0, eax
     jmp 0x08:protected_mode
 
-; 32-bit protected mode code
+; BIOS read using INT 13h extensions
+read_lba:
+    pusha
+    push ds
+    mov ax, 0
+    mov ds, ax
+    mov byte [DAP_BUF], 0x10
+    mov byte [DAP_BUF+1], 0
+    mov word [DAP_BUF+2], cx
+    mov word [DAP_BUF+4], bx
+    mov word [DAP_BUF+6], es
+    mov dword [DAP_BUF+8], eax
+    mov dword [DAP_BUF+12], 0
+    mov si, DAP_BUF
+    mov dl, [BOOT_DRIVE]
+    mov ah, 0x42
+    int 0x13
+    pop ds
+    jc hang
+    popa
+    ret
+
+hang:
+    cli
+    hlt
+    jmp hang
+
+; 32-bit protected mode stub
 [BITS 32]
 protected_mode:
     mov ax, 0x10
@@ -58,18 +139,17 @@ protected_mode:
     mov gs, ax
     mov ss, ax
     mov esp, 0x90000
-
     call dword 0x1000
-.halt:
+.hlt:
     hlt
-    jmp .halt
+    jmp .hlt
 
-; GDT setup
 [BITS 16]
+; GDT setup
 gdt_start:
     dq 0x0000000000000000
-    dq 0x00cf9a000000ffff ; code segment
-    dq 0x00cf92000000ffff ; data segment
+    dq 0x00cf9a000000ffff
+    dq 0x00cf92000000ffff
 gdt_end:
 
 gdt_desc:
@@ -77,9 +157,15 @@ gdt_desc:
     dd gdt_start
 
 BOOT_DRIVE: db 0
+ROOT_LBA:   dd 0
+ROOT_SIZE:  dd 0
+KERNEL_LBA: dd 0
+KERNEL_SIZE: dd 0
+
+kernel_name: db 'KERNEL.BIN;1'
+kernel_name_len equ $ - kernel_name
 
 bootmsg: db 'Loading OptrixOS...',0
 
-    ; boot signature
-    times 510-($-$$) db 0
-    dw 0xAA55
+times 510-($-$$) db 0
+dw 0xAA55
