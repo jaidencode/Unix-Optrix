@@ -96,7 +96,7 @@ def roundup(x, align):
 
 def make_dynamic_img(boot_bin, kernel_bin, img_out):
     print("Creating dynamically-sized disk image...")
-    boot = open(boot_bin, "rb").read()
+    boot = bytearray(open(boot_bin, "rb").read())
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
@@ -106,6 +106,10 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     img_size = roundup(total, 512)
     if img_size < min_size:
         img_size = min_size
+    # patch partition table (first entry) with kernel start and size
+    sectors = roundup(len(kern), 512) // 512
+    boot[446+8:446+12] = (1).to_bytes(4, 'little')  # start LBA
+    boot[446+12:446+16] = sectors.to_bytes(4, 'little')
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)

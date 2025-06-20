@@ -80,6 +80,20 @@ BOOT_DRIVE: db 0
 
 bootmsg: db 'Loading OptrixOS...',0
 
+    ; pad so partition table starts at offset 0x1BE
+    times 446-($-$$) db 0
+
+part_table:
+part1_entry:
+    db 0x80        ; bootable flag
+    db 0,2,0       ; CHS begin (head 0, sector 2)
+    db 0x83        ; type Linux
+    db 0,0,0       ; CHS end (ignored)
+    dd 1           ; start LBA - patched by build script
+    dd KERNEL_SECTORS ; total sectors - patched
+part2_entry: times 16 db 0
+part3_entry: times 16 db 0
+part4_entry: times 16 db 0
+
     ; boot signature
-    times 510-($-$$) db 0
     dw 0xAA55
