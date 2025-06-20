@@ -119,6 +119,8 @@ def make_storage_img(img_out, size_mb=100):
     print(f"Creating storage image {img_out} ({size_mb}MB)...")
     with open(img_out, "wb") as img:
         img.truncate(size_mb * 1024 * 1024)
+    # mark for cleanup
+    tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
