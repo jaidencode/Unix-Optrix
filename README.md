@@ -50,11 +50,6 @@ To boot from the ISO instead use:
 qemu-system-x86_64 -cdrom OptrixOS.iso
 ```
 
-`setup_bootloader.py` embeds a small MBR with two partitions. The first holds
-the kernel while the second is a 100&nbsp;MB region reserved for future storage.
-For convenience this second partition is also written out as `drive_c.img` and
-packaged with the ISO.
-
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
