@@ -36,14 +36,14 @@ python3 setup_bootloader.py
 ```
 
 The build now also creates a blank 100&nbsp;MB storage image named
-`drive_c.img`. The bootable ISO includes this image so the OS can
-access additional storage during development.
+`drive_c.img`. The build process now packages this image inside the ISO and
+removes the temporary file afterwards.
 
-If `mkisofs` is available an ISO named `OptrixOS.iso` is created along with
-`drive_c.img`. Boot the system with:
+If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Boot the
+system with:
 
 ```bash
-qemu-system-x86_64 -cdrom OptrixOS.iso -hda drive_c.img
+qemu-system-x86_64 -cdrom OptrixOS.iso
 ```
 
 When `mkisofs` is not available the script outputs only `disk.img` which can be

@@ -300,6 +300,13 @@ def main():
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
+    # Remove temporary storage image after ISO creation
+    if os.path.exists(STORAGE_IMG):
+        try:
+            os.remove(STORAGE_IMG)
+        except Exception as e:
+            print(f"Warning: Could not delete {STORAGE_IMG}: {e}")
+
     print("\nCleaning up temporary build files... (ISO is NEVER deleted)")
     for f in tmp_files:
         try:
