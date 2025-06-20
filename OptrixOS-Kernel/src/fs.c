@@ -20,6 +20,7 @@ static fs_entry* alloc_entry(const char*name,int is_dir){
     e->child=NULL;
     e->sibling=NULL;
     e->content=NULL;
+    e->size=0;
     return e;
 }
 
@@ -91,6 +92,7 @@ void fs_write_file(fs_entry* file,const char* text){
     for(size_t i=0;i<len;i++) buf[i]=text[i];
     buf[len]='\0';
     file->content = buf;
+    file->size = len;
 }
 
 const char* fs_read_file(fs_entry* file){
@@ -106,6 +108,7 @@ void fs_init(void){
     root_dir.child=NULL;
     root_dir.sibling=NULL;
     root_dir.content=NULL;
+    root_dir.size=0;
     for(int i=0;i<root_files_count;i++){
         const char* path = root_files[i].path;
         fs_entry* dir = &root_dir;

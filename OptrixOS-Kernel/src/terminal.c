@@ -2,6 +2,7 @@
 #include "keyboard.h"
 #include "screen.h"
 #include "fs.h"
+#include "vfs.h"
 #include "mem.h"
 #include <stdint.h>
 #include <stddef.h>
@@ -194,10 +195,14 @@ void terminal_init(void){
     screen_clear();
     fs_init();
     current_dir=fs_get_root();
-    fs_entry* logo = fs_find_entry(current_dir, "logo.txt");
-    if(logo) {
-        print(fs_read_file(logo));
+    int fd = vfs_open("/resources/logo.txt");
+    if(fd>=0){
+        char buf[256];
+        size_t r = vfs_read(fd, buf, sizeof(buf)-1);
+        buf[r] = '\0';
+        print(buf);
         put_char('\n');
+        vfs_close(fd);
     }
 }
 
