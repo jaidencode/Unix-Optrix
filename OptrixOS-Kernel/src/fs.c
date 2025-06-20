@@ -1,6 +1,6 @@
 #include "fs.h"
 #include "mem.h"
-#include "root_files.h"
+#include "initrd_data.h"
 #include <stddef.h>
 #include <stdint.h>
 
@@ -107,17 +107,33 @@ void fs_init(void){
     root_dir.sibling=NULL;
     root_dir.content=NULL;
     root_dir.size=0;
-    for(int i=0;i<root_files_count;i++){
-        const char* path = root_files[i].path;
+    typedef struct {
+        int magic;
+        char fileName[64];
+        short file_type;
+        int uid;
+        unsigned int offset;
+        unsigned int length;
+    } __attribute__((packed)) initrd_file_t;
+    typedef struct { int nfiles; } initrd_t;
+
+    const initrd_t* hdr = (const initrd_t*)initrd_data;
+    const initrd_file_t* files = (const initrd_file_t*)(initrd_data + sizeof(initrd_t));
+
+    for(int i=0;i<hdr->nfiles;i++){
+        const char* path = files[i].fileName;
         fs_entry* dir = &root_dir;
-        char part[32]; int pi=0;
+        char part[64]; int pi=0;
         for(int j=0;;j++){
             char c=path[j];
             if(c=='/' || c==0){
                 part[pi]=0;
                 if(c==0){
                     fs_entry* f=fs_create_file(dir, part);
-                    if(f) fs_write_file(f, (const char*)root_files[i].data, root_files[i].size);
+                    if(f){
+                        const unsigned char* data=&initrd_data[files[i].offset];
+                        fs_write_file(f, (const char*)data, files[i].length);
+                    }
                     break;
                 } else {
                     fs_entry* d=fs_find_subdir(dir, part);
@@ -126,7 +142,7 @@ void fs_init(void){
                     dir=d;
                     pi=0;
                 }
-            } else if(pi<31){
+            } else if(pi<63){
                 part[pi++]=c;
             }
         }

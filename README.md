@@ -42,6 +42,10 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+All files under `OptrixOS-Kernel/resources/` are packed into a small initrd at
+build time. They appear under the root directory when the OS boots and can be
+listed or viewed using the shell commands.
+
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing

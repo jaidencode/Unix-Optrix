@@ -128,7 +128,7 @@ def collect_source_files(rootdir):
                 h_files.append(path)
     return asm_files, c_files, h_files
 
-# === ROOT FILE EMBEDDING ===
+# === INITRD GENERATION ===
 def gather_resource_files():
     files = []
     res_dir = os.path.join(KERNEL_PROJECT_ROOT, "resources")
@@ -137,35 +137,51 @@ def gather_resource_files():
             files.append(os.path.join(root, f))
     return files
 
-ROOT_FILES = gather_resource_files()
+INITRD_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "initrd_data.c")
+INITRD_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "initrd_data.h")
 
-ROOT_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "root_files.c")
-ROOT_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "root_files.h")
-
-def generate_root_files():
+def generate_initrd():
+    files = gather_resource_files()
     entries = []
-    for f in ROOT_FILES:
+    file_data = bytearray()
+    header_size = 4 + len(files) * 82
+    offset = header_size
+    for f in files:
         if not os.path.isfile(f):
             continue
         rel = os.path.relpath(f, KERNEL_PROJECT_ROOT).replace("\\", "/")
         with open(f, "rb") as fh:
-            raw = fh.read()
-            data = ''.join(f'\\x{b:02x}' for b in raw)
-        entries.append((rel, data, len(raw)))
-    with open(ROOT_H, "w") as h:
-        h.write("#ifndef ROOT_FILES_H\n#define ROOT_FILES_H\n")
-        h.write("typedef struct { const char* path; const unsigned char* data; unsigned int size; } root_file;\n")
-        h.write("extern const int root_files_count;\n")
-        h.write("extern const root_file root_files[];\n")
+            data = fh.read()
+        entries.append((rel, offset, len(data)))
+        file_data += data
+        offset += len(data)
+
+    blob = bytearray()
+    blob += len(entries).to_bytes(4, "little")
+    for name, off, length in entries:
+        name_bytes = name.encode("utf-8")[:63]
+        name_bytes = name_bytes + b"\x00" * (64 - len(name_bytes))
+        blob += (0xBF).to_bytes(4, "little")
+        blob += name_bytes
+        blob += (1).to_bytes(2, "little")
+        blob += (0).to_bytes(4, "little")
+        blob += off.to_bytes(4, "little")
+        blob += length.to_bytes(4, "little")
+    blob += file_data
+
+    with open(INITRD_H, "w") as h:
+        h.write("#ifndef INITRD_DATA_H\n#define INITRD_DATA_H\n")
+        h.write("extern const unsigned char initrd_data[];\n")
+        h.write("extern const unsigned int initrd_size;\n")
         h.write("#endif\n")
-    with open(ROOT_C, "w") as c:
-        c.write('#include "root_files.h"\n')
-        c.write("const root_file root_files[] = {\n")
-        for name, data, size in entries:
-            c.write(f'    {{"{name}", "{data}", {size}}},\n')
-        c.write("};\n")
-        c.write(f"const int root_files_count = {len(entries)};\n")
-    return ROOT_C
+    with open(INITRD_C, "w") as c:
+        c.write('#include "initrd_data.h"\n')
+        c.write('const unsigned char initrd_data[] = {\n')
+        for b in blob:
+            c.write(f'0x{b:02x},')
+        c.write('\n};\n')
+        c.write(f'const unsigned int initrd_size = {len(blob)};\n')
+    return INITRD_C
 
 
 
@@ -286,9 +302,9 @@ def main():
     asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
     # Exclude the old scheduler from builds
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
-    root_c = generate_root_files()
-    if root_c and root_c not in c_files:
-        c_files.append(root_c)
+    initrd_c = generate_initrd()
+    if initrd_c and initrd_c not in c_files:
+        c_files.append(initrd_c)
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
