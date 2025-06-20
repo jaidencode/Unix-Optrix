@@ -3,6 +3,12 @@ import sys
 import os
 import shutil
 import stat
+import struct
+
+try:
+    from pyfatfs.PyFat import PyFat
+except ImportError:
+    PyFat = None
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -113,10 +119,44 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
 
+def _require_pyfatfs():
+    if PyFat is None:
+        print("Error: pyfatfs module not found. Install with 'pip install pyfatfs'.")
+        sys.exit(1)
+
+
+def _mk_fat_partition(img_path, offset, size_mb, label):
+    _require_pyfatfs()
+    pf = PyFat(offset=offset)
+    pf.mkfs(img_path, PyFat.FAT_TYPE_FAT32, size=size_mb * 1024 * 1024,
+            sector_size=512, label=label)
+    pf.close()
+
+
+def _write_partition_table(img_path, boot_mb, os_mb):
+    boot_offset = 1 * 1024 * 1024
+    boot_size = boot_mb * 1024 * 1024
+    os_offset = boot_offset + boot_size
+    boot_lba = boot_offset // 512
+    boot_sectors = boot_size // 512
+    os_lba = os_offset // 512
+    os_sectors = os_mb * 1024 * 1024 // 512
+    mbr = bytearray(512)
+    with open(img_path, "rb") as f:
+        mbr[: len(mbr)] = f.read(512)
+    mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\0\0\0', 0x0C, b'\0\0\0', boot_lba, boot_sectors)
+    mbr[462:478] = struct.pack('<B3sB3sII', 0x00, b'\0\0\0', 0x0C, b'\0\0\0', os_lba, os_sectors)
+    mbr[510:512] = b'\x55\xAA'
+    with open(img_path, "r+b") as f:
+        f.seek(0)
+        f.write(mbr)
+
+
 def make_partitioned_img(boot_bin, kernel_bin, img_out, boot_mb=200, os_mb=1024):
-    print("Creating partitioned disk image...")
+    print("Creating partitioned disk image (Python mode)...")
     total_mb = 1 + boot_mb + os_mb
-    run(["dd", "if=/dev/zero", f"of={img_out}", "bs=1M", f"count={total_mb}"])
+    with open(img_out, "wb") as img:
+        img.truncate(total_mb * 1024 * 1024)
 
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
@@ -129,29 +169,12 @@ def make_partitioned_img(boot_bin, kernel_bin, img_out, boot_mb=200, os_mb=1024)
         img.write(boot)
         img.write(kern)
 
-    # create partition table
-    run(["parted", "-s", img_out, "mklabel", "msdos"])
-    run(["parted", "-s", img_out, "mkpart", "primary", "ext2", "1MiB", f"{boot_mb+1}MiB"])
-    run(["parted", "-s", img_out, "set", "1", "boot", "on"])
-    run(["parted", "-s", img_out, "mkpart", "primary", "ext2",
-         f"{boot_mb+1}MiB", f"{boot_mb+1+os_mb}MiB"])
-
-    # build boot filesystem image
-    bootfs = "bootfs.img"
-    run(["dd", "if=/dev/zero", f"of={bootfs}", "bs=1M", f"count={boot_mb}"])
-    run(["mkfs.ext2", "-F", bootfs])
-    start_sector = 1 * 1024 * 1024 // 512
-    run(["dd", f"if={bootfs}", f"of={img_out}", "conv=notrunc", f"seek={start_sector}"])
-
-    # build os filesystem image
-    osfs = "osfs.img"
-    run(["dd", "if=/dev/zero", f"of={osfs}", "bs=1M", f"count={os_mb}"])
-    run(["mkfs.ext2", "-F", osfs])
-    os_start_mb = 1 + boot_mb
-    os_start_sector = os_start_mb * 1024 * 1024 // 512
-    run(["dd", f"if={osfs}", f"of={img_out}", "conv=notrunc", f"seek={os_start_sector}"])
-
-    tmp_files.extend([bootfs, osfs, img_out])
+    boot_offset = 1 * 1024 * 1024
+    os_offset = boot_offset + boot_mb * 1024 * 1024
+    _mk_fat_partition(img_out, boot_offset, boot_mb, "BOOT")
+    _mk_fat_partition(img_out, os_offset, os_mb, "OPTRIX")
+    _write_partition_table(img_out, boot_mb, os_mb)
+    tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
