@@ -1,10 +1,12 @@
 #include "fs.h"
 #include "mem.h"
+#include "disk.h"
 #include "root_files.h"
 #include <stddef.h>
 #include <stdint.h>
 
 static fs_entry root_dir;
+static partition_t* root_partition;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
 
@@ -100,6 +102,8 @@ const char* fs_read_file(fs_entry* file){
 }
 
 void fs_init(void){
+    disk_init();
+    root_partition = disk_get_part(0);
     root_dir.name="/";
     root_dir.is_dir=1;
     root_dir.parent=NULL;

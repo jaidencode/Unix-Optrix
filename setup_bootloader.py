@@ -32,6 +32,10 @@ if not os.path.isfile(MKISOFS_EXE):
 
 # Only build sources inside the kernel directory
 KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
+ADDITIONAL_SRC_DIRS = [
+    "drivers","fs","hardware","include","io",
+    "libc","misc","shell","sys","system"
+]
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
@@ -113,19 +117,25 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
 
-def collect_source_files(rootdir):
+def collect_source_files(rootdir, extra_dirs=None):
     asm_files, c_files, h_files = [], [], []
     skip_dirs = {'.git', '_iso_tmp', '_build_obj', '__pycache__'}
-    for root, dirs, files in os.walk(rootdir):
-        dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.')]
-        for f in files:
-            path = os.path.join(root, f)
-            if f.endswith('.asm'):
-                asm_files.append(path)
-            elif f.endswith('.c'):
-                c_files.append(path)
-            elif f.endswith('.h'):
-                h_files.append(path)
+    search_dirs = [rootdir]
+    if extra_dirs:
+        search_dirs.extend(extra_dirs)
+    for basedir in search_dirs:
+        if not os.path.isdir(basedir):
+            continue
+        for root, dirs, files in os.walk(basedir):
+            dirs[:] = [d for d in dirs if d not in skip_dirs and not d.startswith('.')]
+            for f in files:
+                path = os.path.join(root, f)
+                if f.endswith('.asm'):
+                    asm_files.append(path)
+                elif f.endswith('.c'):
+                    c_files.append(path)
+                elif f.endswith('.h'):
+                    h_files.append(path)
     return asm_files, c_files, h_files
 
 # === ROOT FILE EMBEDDING ===
@@ -277,7 +287,7 @@ def cleanup():
 
 def main():
     print("Collecting all project source files...")
-    asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT)
+    asm_files, c_files, h_files = collect_source_files(KERNEL_PROJECT_ROOT, ADDITIONAL_SRC_DIRS)
     # Exclude the old scheduler from builds
     c_files = [f for f in c_files if not f.endswith('scheduler.c')]
     root_c = generate_root_files()

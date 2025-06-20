@@ -10,5 +10,6 @@ typedef struct {
 void driver_register(driver_t *drv);
 void driver_init_all(void);
 void driver_update_all(void);
+void driver_setup(void);
 
 #endif
