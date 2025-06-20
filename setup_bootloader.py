@@ -113,6 +113,31 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
 
+def patch_partition_table(img_path, kernel_sectors):
+    """Write a simple MBR partition table with two partitions."""
+    part1_start = 1  # first sector after MBR
+    with open(img_path, "r+b") as f:
+        f.seek(0, os.SEEK_END)
+        total_sectors = f.tell() // 512
+        part1_size = kernel_sectors
+        part2_start = part1_start + part1_size
+        part2_size = total_sectors - part2_start
+
+        # partition entry 1
+        f.seek(0x1BE)
+        f.write(bytes([0x80, 0, 2, 0, 0x83, 0, 0, 0]))
+        f.write(part1_start.to_bytes(4, "little"))
+        f.write(part1_size.to_bytes(4, "little"))
+
+        # partition entry 2
+        f.write(bytes([0x00, 0, 0, 0, 0x83, 0, 0, 0]))
+        f.write(part2_start.to_bytes(4, "little"))
+        f.write(part2_size.to_bytes(4, "little"))
+
+        # zero remaining entries
+        remaining = 64 - 32
+        f.write(b"\0" * remaining)
+
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
     skip_dirs = {'.git', '_iso_tmp', '_build_obj', '__pycache__'}
@@ -204,9 +229,14 @@ def build_kernel(asm_files, c_files, out_bin):
     sectors = roundup(kernel_bytes, 512) // 512
 
     boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
+    assemble(
+        bootloader_src,
+        boot_bin,
+        fmt="bin",
+        defines={"KERNEL_SECTORS": sectors, "KERNEL_LBA": 1},
+    )
 
-    return boot_bin, out_bin
+    return boot_bin, out_bin, sectors
 
 def on_rm_error(func, path, exc_info):
     # Make file writable and retry (Windows-safe)
@@ -285,8 +315,9 @@ def main():
         c_files.append(root_c)
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
-    boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
+    boot_bin, kernel_bin, kernel_sectors = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
     make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    patch_partition_table(DISK_IMG, kernel_sectors)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
