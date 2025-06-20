@@ -42,6 +42,10 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+`setup_bootloader.py` now produces a disk image with two partitions.  The first
+partition is marked bootable and sized at 200&nbsp;MB while the second holds the
+OS data and is 1&nbsp;GB in size.  Both partitions are formatted as `ext2`.
+
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
