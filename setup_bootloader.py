@@ -3,6 +3,12 @@ import sys
 import os
 import shutil
 import stat
+import struct
+
+try:
+    from pyfatfs.PyFat import PyFat
+except ImportError:
+    PyFat = None
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
@@ -111,6 +117,63 @@ def make_dynamic_img(boot_bin, kernel_bin, img_out):
         img.write(kern)
         img.write(b'\0' * (img_size - total))
     print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+    tmp_files.append(img_out)
+
+def _require_pyfatfs():
+    if PyFat is None:
+        print("Error: pyfatfs module not found. Install with 'pip install pyfatfs'.")
+        sys.exit(1)
+
+
+def _mk_fat_partition(img_path, offset, size_mb, label):
+    _require_pyfatfs()
+    pf = PyFat(offset=offset)
+    pf.mkfs(img_path, PyFat.FAT_TYPE_FAT32, size=size_mb * 1024 * 1024,
+            sector_size=512, label=label)
+    pf.close()
+
+
+def _write_partition_table(img_path, boot_mb, os_mb):
+    boot_offset = 1 * 1024 * 1024
+    boot_size = boot_mb * 1024 * 1024
+    os_offset = boot_offset + boot_size
+    boot_lba = boot_offset // 512
+    boot_sectors = boot_size // 512
+    os_lba = os_offset // 512
+    os_sectors = os_mb * 1024 * 1024 // 512
+    mbr = bytearray(512)
+    with open(img_path, "rb") as f:
+        mbr[: len(mbr)] = f.read(512)
+    mbr[446:462] = struct.pack('<B3sB3sII', 0x80, b'\0\0\0', 0x0C, b'\0\0\0', boot_lba, boot_sectors)
+    mbr[462:478] = struct.pack('<B3sB3sII', 0x00, b'\0\0\0', 0x0C, b'\0\0\0', os_lba, os_sectors)
+    mbr[510:512] = b'\x55\xAA'
+    with open(img_path, "r+b") as f:
+        f.seek(0)
+        f.write(mbr)
+
+
+def make_partitioned_img(boot_bin, kernel_bin, img_out, boot_mb=200, os_mb=1024):
+    print("Creating partitioned disk image (Python mode)...")
+    total_mb = 1 + boot_mb + os_mb
+    with open(img_out, "wb") as img:
+        img.truncate(total_mb * 1024 * 1024)
+
+    boot = open(boot_bin, "rb").read()
+    if len(boot) != 512:
+        print("Error: Bootloader must be exactly 512 bytes!")
+        sys.exit(1)
+    kern = open(kernel_bin, "rb").read()
+
+    with open(img_out, "r+b") as img:
+        img.seek(0)
+        img.write(boot)
+        img.write(kern)
+
+    boot_offset = 1 * 1024 * 1024
+    os_offset = boot_offset + boot_mb * 1024 * 1024
+    _mk_fat_partition(img_out, boot_offset, boot_mb, "BOOT")
+    _mk_fat_partition(img_out, os_offset, os_mb, "OPTRIX")
+    _write_partition_table(img_out, boot_mb, os_mb)
     tmp_files.append(img_out)
 
 def collect_source_files(rootdir):
@@ -286,7 +349,7 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    make_partitioned_img(boot_bin, kernel_bin, DISK_IMG)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
