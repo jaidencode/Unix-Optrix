@@ -1,10 +1,13 @@
 #include "fs.h"
 #include "mem.h"
+#include "disk.h"
 #include "root_files.h"
 #include <stddef.h>
 #include <stdint.h>
 
 static fs_entry root_dir;
+static partition_t* root_partition;
+static size_t next_block = 0;
 
 static size_t fs_strlen(const char* s){ size_t l=0; while(s[l]) l++; return l; }
 
@@ -20,6 +23,7 @@ static fs_entry* alloc_entry(const char*name,int is_dir){
     e->child=NULL;
     e->sibling=NULL;
     e->content=NULL;
+    e->block=0;
     return e;
 }
 
@@ -46,6 +50,7 @@ fs_entry* fs_create_dir(fs_entry* dir, const char* name){
 fs_entry* fs_create_file(fs_entry* dir, const char* name){
     fs_entry* e=alloc_entry(name,0);
     if(!e) return NULL;
+    e->block = next_block++;
     add_child(dir,e);
     return e;
 }
@@ -85,21 +90,31 @@ void fs_write_file(fs_entry* file,const char* text){
     if(!file || file->is_dir)
         return;
     size_t len = fs_strlen(text);
-    if(len>255) len=255;
+    if(len>BLOCK_SIZE-1) len=BLOCK_SIZE-1;
     char* buf = mem_alloc(len+1);
     if(!buf) return;
     for(size_t i=0;i<len;i++) buf[i]=text[i];
     buf[len]='\0';
     file->content = buf;
+    disk_write_block(root_partition, file->block, buf);
 }
 
 const char* fs_read_file(fs_entry* file){
-    if(!file || file->is_dir || !file->content)
+    if(!file || file->is_dir)
         return "";
+    if(!file->content){
+        file->content = mem_alloc(BLOCK_SIZE);
+        if(!file->content) return "";
+        disk_read_block(root_partition, file->block, file->content);
+        file->content[BLOCK_SIZE-1]='\0';
+    }
     return file->content;
 }
 
 void fs_init(void){
+    disk_init();
+    root_partition = disk_get_part(0);
+    next_block = 0;
     root_dir.name="/";
     root_dir.is_dir=1;
     root_dir.parent=NULL;

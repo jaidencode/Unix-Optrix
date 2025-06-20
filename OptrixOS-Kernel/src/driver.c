@@ -5,6 +5,12 @@
 static driver_t *drivers[MAX_DRIVERS];
 static int driver_count = 0;
 
+extern driver_t keyboard_driver;
+
+void driver_setup(void){
+    driver_register(&keyboard_driver);
+}
+
 void driver_register(driver_t *drv) {
     if(driver_count < MAX_DRIVERS)
         drivers[driver_count++] = drv;
