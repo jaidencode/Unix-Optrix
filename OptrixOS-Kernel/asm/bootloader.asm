@@ -30,6 +30,11 @@ start:
     jmp .printloop
 .doneprint:
 
+    ; fetch kernel start LBA from first partition entry
+    mov bx, part1_entry
+    mov eax, [bx + 8]
+    mov [DAP + 8], eax
+
     ; load kernel using BIOS extended read
     mov dl, [BOOT_DRIVE]
     mov si, DAP
@@ -84,6 +89,16 @@ DAP:
 
 bootmsg: db 'Loading OptrixOS...',0
 
-    ; boot signature
-    times 510-($-$$) db 0
+    ; pad to partition table start (offset 0x1BE)
+    times 0x1BE-($-$$) db 0
+
+part1_entry:
+    times 16 db 0
+part2_entry:
+    times 16 db 0
+part3_entry:
+    times 16 db 0
+part4_entry:
+    times 16 db 0
+
     dw 0xAA55
