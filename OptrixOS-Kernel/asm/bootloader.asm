@@ -80,6 +80,20 @@ BOOT_DRIVE: db 0
 
 bootmsg: db 'Loading OptrixOS...',0
 
+    ; pad up to partition table area (offset 0x1BE)
+    times 446-($-$$) db 0
+
+    ; simple two-partition MBR table
+    ; partition 1: boot (start LBA 1, 256 sectors)
+    db 0x80,0x00,0x02,0x00,0x0B,0x00,0x00,0x00
+    dd 0x00000001
+    dd 0x00000100
+    ; partition 2: data (start LBA 257, remaining sectors)
+    db 0x00,0x00,0x00,0x00,0x83,0x00,0x00,0x00
+    dd 0x00000101
+    dd 0x00000F00
+    ; remaining empty entries
+    times (16*4 - 16*2) db 0
+
     ; boot signature
-    times 510-($-$$) db 0
     dw 0xAA55

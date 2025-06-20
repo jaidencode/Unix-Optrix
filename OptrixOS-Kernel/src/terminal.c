@@ -51,6 +51,14 @@ static void print_int(int n) {
     for(int j=i-1;j>=0;j--) put_char(buf[j]);
 }
 
+void terminal_print(const char* text){
+    print(text);
+}
+
+void terminal_print_int(int n){
+    print_int(n);
+}
+
 static void read_line(char *buf, size_t max) {
     size_t idx=0;
     while(1) {
