@@ -36,8 +36,8 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
+STORAGE_IMG = "drive_c.img"
 STORAGE_SIZE_MB = 100
-BOOT_START_LBA = 2048  # start of boot partition
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 
@@ -96,49 +96,30 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_partitioned_img(boot_bin, kernel_bin, img_out, storage_mb=100):
-    """Create a disk image with a simple two-partition MBR."""
-    print("Creating partitioned disk image...")
+def make_dynamic_img(boot_bin, kernel_bin, img_out):
+    print("Creating dynamically-sized disk image...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-
-    sector_size = 512
-    start_lba = 2048  # 1MB offset for first partition
-    kernel_sectors = roundup(len(kern), sector_size) // sector_size
-    storage_start = start_lba + kernel_sectors
-    storage_sectors = storage_mb * 1024 * 2  # MB to sectors
-
-    total_sectors = storage_start + storage_sectors
-
-    mbr = bytearray(boot)
-    import struct
-    # Partition 1: boot + kernel
-    part1 = struct.pack('<B3sB3sII', 0x80, b'\x00\x02\x00', 0x83, b'\x00\x02\x00',
-                        start_lba, kernel_sectors)
-    # Partition 2: storage
-    part2 = struct.pack('<B3sB3sII', 0x00, b'\x00\x00\x00', 0x83, b'\x00\x00\x00',
-                        storage_start, storage_sectors)
-    mbr[446:446+16] = part1
-    mbr[462:462+16] = part2
-    mbr[510:512] = b'\x55\xAA'
-
-    with open(img_out, 'wb') as img:
-        img.write(mbr)
-        # Gap until start_lba
-        img.write(b'\0' * ((start_lba-1) * sector_size))
+    total = 512 + len(kern)
+    min_size = 1474560  # 1.44MB
+    img_size = roundup(total, 512)
+    if img_size < min_size:
+        img_size = min_size
+    with open(img_out, "wb") as img:
+        img.write(boot)
         img.write(kern)
-        kernel_padding = (kernel_sectors * sector_size) - len(kern)
-        if kernel_padding:
-            img.write(b'\0' * kernel_padding)
-        # Write storage partition (zero-filled)
-        img.write(b'\0' * (storage_sectors * sector_size))
-
-    img_size = total_sectors * sector_size
-    print(f"Disk image ({img_size // 1024} KB) created with kernel at LBA {start_lba}.")
+        img.write(b'\0' * (img_size - total))
+    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
     tmp_files.append(img_out)
+
+def create_storage_img(path, size_mb):
+    print(f"Creating storage image {path} ({size_mb} MB)...")
+    with open(path, "wb") as img:
+        img.truncate(size_mb * 1024 * 1024)
+    tmp_files.append(path)
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []
@@ -234,8 +215,7 @@ def build_kernel(asm_files, c_files, out_bin):
         sys.exit(1)
 
     boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin",
-             defines={"KERNEL_SECTORS": sectors, "KERNEL_LBA": BOOT_START_LBA})
+    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
 
     return boot_bin, out_bin
 
@@ -265,6 +245,8 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root):
     # Place disk image at ISO root
     if os.path.exists(DISK_IMG):
         shutil.copy(DISK_IMG, os.path.join(tmp_iso_dir, "disk.img"))
+    if os.path.exists(STORAGE_IMG):
+        shutil.copy(STORAGE_IMG, os.path.join(tmp_iso_dir, "drive_c.img"))
 
 
 def make_iso_with_tree(tmp_iso_dir, iso_out):
@@ -317,7 +299,8 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_partitioned_img(boot_bin, kernel_bin, DISK_IMG, STORAGE_SIZE_MB)
+    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    create_storage_img(STORAGE_IMG, STORAGE_SIZE_MB)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
 
