@@ -82,14 +82,12 @@ int fs_delete_entry(fs_entry* dir,const char* name){
     return 0;
 }
 
-void fs_write_file(fs_entry* file,const char* text){
+void fs_write_file(fs_entry* file,const char* data,size_t len){
     if(!file || file->is_dir)
         return;
-    size_t len = fs_strlen(text);
-    if(len>255) len=255;
-    char* buf = mem_alloc(len+1);
+    char* buf = mem_alloc(len + 1);
     if(!buf) return;
-    for(size_t i=0;i<len;i++) buf[i]=text[i];
+    for(size_t i=0;i<len;i++) buf[i]=data[i];
     buf[len]='\0';
     file->content = buf;
     file->size = len;
@@ -119,7 +117,7 @@ void fs_init(void){
                 part[pi]=0;
                 if(c==0){
                     fs_entry* f=fs_create_file(dir, part);
-                    if(f) fs_write_file(f, root_files[i].data);
+                    if(f) fs_write_file(f, (const char*)root_files[i].data, root_files[i].size);
                     break;
                 } else {
                     fs_entry* d=fs_find_subdir(dir, part);

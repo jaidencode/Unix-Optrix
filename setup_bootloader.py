@@ -129,10 +129,15 @@ def collect_source_files(rootdir):
     return asm_files, c_files, h_files
 
 # === ROOT FILE EMBEDDING ===
-ROOT_FILES = [
-    os.path.join(KERNEL_PROJECT_ROOT, "resources", "welcome.txt"),
-    os.path.join(KERNEL_PROJECT_ROOT, "resources", "logo.txt"),
-]
+def gather_resource_files():
+    files = []
+    res_dir = os.path.join(KERNEL_PROJECT_ROOT, "resources")
+    for root, _, fns in os.walk(res_dir):
+        for f in fns:
+            files.append(os.path.join(root, f))
+    return files
+
+ROOT_FILES = gather_resource_files()
 
 ROOT_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "root_files.c")
 ROOT_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "root_files.h")
@@ -143,20 +148,21 @@ def generate_root_files():
         if not os.path.isfile(f):
             continue
         rel = os.path.relpath(f, KERNEL_PROJECT_ROOT).replace("\\", "/")
-        with open(f, "r", errors="ignore") as fh:
-            data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")
-        entries.append((rel, data))
+        with open(f, "rb") as fh:
+            raw = fh.read()
+            data = ''.join(f'\\x{b:02x}' for b in raw)
+        entries.append((rel, data, len(raw)))
     with open(ROOT_H, "w") as h:
         h.write("#ifndef ROOT_FILES_H\n#define ROOT_FILES_H\n")
-        h.write("typedef struct { const char* path; const char* data; } root_file;\n")
+        h.write("typedef struct { const char* path; const unsigned char* data; unsigned int size; } root_file;\n")
         h.write("extern const int root_files_count;\n")
         h.write("extern const root_file root_files[];\n")
         h.write("#endif\n")
     with open(ROOT_C, "w") as c:
         c.write('#include "root_files.h"\n')
         c.write("const root_file root_files[] = {\n")
-        for name, data in entries:
-            c.write(f'    {{"{name}", "{data}"}},\n')
+        for name, data, size in entries:
+            c.write(f'    {{"{name}", "{data}", {size}}},\n')
         c.write("};\n")
         c.write(f"const int root_files_count = {len(entries)};\n")
     return ROOT_C
