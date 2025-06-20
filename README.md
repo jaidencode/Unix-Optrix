@@ -49,10 +49,10 @@ To boot from the ISO instead use:
 qemu-system-x86_64 -cdrom OptrixOS.iso
 ```
 
-`setup_bootloader.py` also creates a zero-filled 100&nbsp;MB image named
-`drive_c.img` that is packaged alongside `disk.img` in the ISO. The running
-kernel does not currently implement a block device driver so this file acts only
-as a placeholder for future storage experiments.
+The resulting disk image now includes a simple MBR with two partitions. The
+first contains the bootloader and kernel, while the second is a 100&nbsp;MB
+data partition for future storage experiments. No separate `drive_c.img`
+file is generated.
 
 ## Built-in terminal
 
