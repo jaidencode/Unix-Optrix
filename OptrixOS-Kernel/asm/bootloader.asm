@@ -4,9 +4,6 @@ ORG 0x7C00
 %ifndef KERNEL_SECTORS
 %define KERNEL_SECTORS 1
 %endif
-%ifndef KERNEL_LBA
-%define KERNEL_LBA 1
-%endif
 
 start:
     cli
@@ -83,7 +80,7 @@ DAP:
     dw KERNEL_SECTORS  ; number of sectors to read
     dw 0x1000          ; offset to load kernel
     dw 0x0000          ; segment
-    dq KERNEL_LBA      ; starting LBA of kernel
+    dq 1               ; starting LBA (sector 2)
 
 bootmsg: db 'Loading OptrixOS...',0
 
