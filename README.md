@@ -35,12 +35,19 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
-If `mkisofs` is available an ISO named `OptrixOS.iso` is created. Otherwise the
-script outputs `disk.img` which can be run with:
+The build now also creates a blank 100&nbsp;MB storage image named
+`drive_c.img`. The bootable ISO includes this image so the OS can
+access additional storage during development.
+
+If `mkisofs` is available an ISO named `OptrixOS.iso` is created along with
+`drive_c.img`. Boot the system with:
 
 ```bash
-qemu-system-x86_64 -hda disk.img
+qemu-system-x86_64 -cdrom OptrixOS.iso -hda drive_c.img
 ```
+
+When `mkisofs` is not available the script outputs only `disk.img` which can be
+used directly with QEMU.
 
 ## Built-in terminal
 
