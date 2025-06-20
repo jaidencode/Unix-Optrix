@@ -13,6 +13,8 @@ start:
     mov es, ax
     mov ss, ax
     mov sp, 0x7C00
+    ; preserve boot drive number provided in DL
+    mov [BOOT_DRIVE], dl
 
     ; Set 80x25 text mode
     mov ax, 0x0003
