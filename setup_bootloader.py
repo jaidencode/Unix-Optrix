@@ -129,19 +129,22 @@ def collect_source_files(rootdir):
     return asm_files, c_files, h_files
 
 # === ROOT FILE EMBEDDING ===
-ROOT_FILES = [
-    os.path.join(KERNEL_PROJECT_ROOT, "resources", "welcome.txt"),
-    os.path.join(KERNEL_PROJECT_ROOT, "resources", "logo.txt"),
-]
+ROOT_RESOURCES_DIR = os.path.join(KERNEL_PROJECT_ROOT, "resources")
+
+def list_resource_files():
+    files = []
+    if os.path.isdir(ROOT_RESOURCES_DIR):
+        for root, _, names in os.walk(ROOT_RESOURCES_DIR):
+            for n in names:
+                files.append(os.path.join(root, n))
+    return files
 
 ROOT_C = os.path.join(KERNEL_PROJECT_ROOT, "src", "root_files.c")
 ROOT_H = os.path.join(KERNEL_PROJECT_ROOT, "include", "root_files.h")
 
 def generate_root_files():
     entries = []
-    for f in ROOT_FILES:
-        if not os.path.isfile(f):
-            continue
+    for f in list_resource_files():
         rel = os.path.relpath(f, KERNEL_PROJECT_ROOT).replace("\\", "/")
         with open(f, "r", errors="ignore") as fh:
             data = fh.read().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n")

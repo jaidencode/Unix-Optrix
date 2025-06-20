@@ -42,6 +42,13 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+### Resource files
+
+Any files placed inside `OptrixOS-Kernel/resources/` are automatically
+embedded into the in-memory filesystem when `setup_bootloader.py` is run.
+These resources can be viewed from the shell using commands like `dir` and
+`cat`. There is no practical size limit beyond available memory.
+
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
