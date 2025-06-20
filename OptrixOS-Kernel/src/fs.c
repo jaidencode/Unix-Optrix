@@ -86,7 +86,8 @@ void fs_write_file(fs_entry* file,const char* text){
     if(!file || file->is_dir)
         return;
     size_t len = fs_strlen(text);
-    char* buf = mem_alloc(len + 1);
+    if(len>255) len=255;
+    char* buf = mem_alloc(len+1);
     if(!buf) return;
     for(size_t i=0;i<len;i++) buf[i]=text[i];
     buf[len]='\0';
