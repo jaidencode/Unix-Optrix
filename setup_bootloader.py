@@ -94,23 +94,52 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
+def write_partition_table(f, boot_sectors, total_sectors):
+    """Write a simple MBR with two partitions."""
+    part1_start = 1
+    part1_size = boot_sectors
+    part2_start = part1_start + part1_size
+    part2_size = total_sectors - part2_start
+
+    f.seek(0x1BE)
+    # Partition 1 - bootable FAT
+    p1 = bytearray(16)
+    p1[0] = 0x80
+    p1[4] = 0x0C
+    p1[8:12] = part1_start.to_bytes(4, 'little')
+    p1[12:16] = part1_size.to_bytes(4, 'little')
+    f.write(p1)
+
+    # Partition 2 - generic data
+    p2 = bytearray(16)
+    p2[4] = 0x83
+    p2[8:12] = part2_start.to_bytes(4, 'little')
+    p2[12:16] = part2_size.to_bytes(4, 'little')
+    f.write(p2)
+
+    f.write(b"\0" * 32)
+
 def make_dynamic_img(boot_bin, kernel_bin, img_out):
-    print("Creating dynamically-sized disk image...")
+    print("Creating dynamically-sized disk image with partitions...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
-    min_size = 1474560  # 1.44MB
-    img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
+
+    kernel_sectors = roundup(len(kern), 512) // 512
+    boot_part_sectors = max(2048, kernel_sectors + 1)  # 1MB minimum
+    total_sectors = 32768  # 16MB disk image
+
+    img_size = total_sectors * 512
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern)
-        img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+        img.write(b"\0" * (boot_part_sectors * 512 - len(boot) - len(kern)))
+        img.write(b"\0" * ((total_sectors - boot_part_sectors) * 512))
+        write_partition_table(img, boot_part_sectors, total_sectors)
+
+    print(f"Disk image ({img_size // (1024)} KB) created with partitions.")
     tmp_files.append(img_out)
 
 def collect_source_files(rootdir):

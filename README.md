@@ -42,6 +42,11 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
+The disk image now contains a simple MBR with two partitions. The first
+1 MB partition holds the bootloader and kernel while the remaining space is
+reserved for the OS to use. When placed on an ISO the image is used in hard
+disk emulation mode so the partitions are visible to the guest.
+
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
