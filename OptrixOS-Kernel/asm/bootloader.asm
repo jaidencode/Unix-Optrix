@@ -30,36 +30,14 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (handles multi-track loads)
-    xor ax, ax
-    mov es, ax
-    mov di, 0x1000    ; load address
-    mov si, 1         ; first kernel LBA sector
-    mov cx, KERNEL_SECTORS
-.load_loop:
-    mov ax, si        ; convert LBA -> CHS
-    mov bx, 18        ; sectors per track
-    xor dx, dx
-    div bx            ; ax = lba/18, dx = lba%18
-    mov cl, dl
-    inc cl
-    mov bx, 2         ; heads
-    xor dx, dx
-    div bx            ; ax = cylinder, dx = head
-    mov ch, al
-    mov dh, dl
-    mov bl, ah        ; high cyl bits
-    and bl, 0x03
-    shl bl, 6
-    or cl, bl
+    ; load kernel (assumes kernel starts at second sector)
+    mov bx, 0x1000    ; ES:BX points to load address
     mov dl, [BOOT_DRIVE]
-    mov bx, di
-    mov ah, 0x02
-    mov al, 1
+    mov dh, 0         ; head
+    mov ah, 0x02      ; BIOS read disk
+    mov al, KERNEL_SECTORS
+    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
     int 0x13
-    add di, 512
-    inc si
-    loop .load_loop
 
     ; setup basic GDT for protected mode
     lgdt [gdt_desc]
