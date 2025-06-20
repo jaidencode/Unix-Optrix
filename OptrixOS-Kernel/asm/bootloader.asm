@@ -30,13 +30,15 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
+    ; load kernel (assumes kernel starts at LBA 1)
+    mov word [dap_packet+2], KERNEL_SECTORS
+    mov word [dap_packet+4], 0x1000     ; offset
+    mov word [dap_packet+6], 0x0000     ; segment
+    mov dword [dap_packet+8], 1         ; starting LBA
+    mov dword [dap_packet+12], 0
+    mov si, dap_packet
     mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    mov ah, 0x42      ; BIOS EXTENDED READ
     int 0x13
 
     ; setup basic GDT for protected mode
@@ -75,6 +77,14 @@ gdt_end:
 gdt_desc:
     dw gdt_end - gdt_start - 1
     dd gdt_start
+
+dap_packet:
+    db 16,0       ; size, reserved
+    dw 0          ; sector count (filled at runtime)
+    dw 0          ; offset (filled)
+    dw 0          ; segment (filled)
+    dd 0          ; start LBA low
+    dd 0          ; start LBA high
 
 BOOT_DRIVE: db 0
 

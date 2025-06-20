@@ -35,12 +35,14 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
-The build now also creates a blank 100&nbsp;MB storage image named
+The build now also creates a temporary 100&nbsp;MB storage image named
 `drive_c.img`. The bootable ISO includes this image so the OS can
-access additional storage during development.
+access additional storage during development. This file is deleted once
+the ISO generation completes.
 
-If `mkisofs` is available an ISO named `OptrixOS.iso` is created along with
-`drive_c.img`. Boot the system with:
+If `mkisofs` is available an ISO named `OptrixOS.iso` is created.
+To attach a blank storage image in QEMU run the build script again to
+regenerate `drive_c.img` and boot with:
 
 ```bash
 qemu-system-x86_64 -cdrom OptrixOS.iso -hda drive_c.img
