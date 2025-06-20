@@ -158,6 +158,11 @@ def make_partitioned_img(boot_bin, kernel_bin, img_out, boot_mb=200, os_mb=1024)
     with open(img_out, "wb") as img:
         img.truncate(total_mb * 1024 * 1024)
 
+def make_partitioned_img(boot_bin, kernel_bin, img_out, boot_mb=200, os_mb=1024):
+    print("Creating partitioned disk image...")
+    total_mb = 1 + boot_mb + os_mb
+    run(["dd", "if=/dev/zero", f"of={img_out}", "bs=1M", f"count={total_mb}"])
+
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
@@ -175,6 +180,29 @@ def make_partitioned_img(boot_bin, kernel_bin, img_out, boot_mb=200, os_mb=1024)
     _mk_fat_partition(img_out, os_offset, os_mb, "OPTRIX")
     _write_partition_table(img_out, boot_mb, os_mb)
     tmp_files.append(img_out)
+    # create partition table
+    run(["parted", "-s", img_out, "mklabel", "msdos"])
+    run(["parted", "-s", img_out, "mkpart", "primary", "ext2", "1MiB", f"{boot_mb+1}MiB"])
+    run(["parted", "-s", img_out, "set", "1", "boot", "on"])
+    run(["parted", "-s", img_out, "mkpart", "primary", "ext2",
+         f"{boot_mb+1}MiB", f"{boot_mb+1+os_mb}MiB"])
+
+    # build boot filesystem image
+    bootfs = "bootfs.img"
+    run(["dd", "if=/dev/zero", f"of={bootfs}", "bs=1M", f"count={boot_mb}"])
+    run(["mkfs.ext2", "-F", bootfs])
+    start_sector = 1 * 1024 * 1024 // 512
+    run(["dd", f"if={bootfs}", f"of={img_out}", "conv=notrunc", f"seek={start_sector}"])
+
+    # build os filesystem image
+    osfs = "osfs.img"
+    run(["dd", "if=/dev/zero", f"of={osfs}", "bs=1M", f"count={os_mb}"])
+    run(["mkfs.ext2", "-F", osfs])
+    os_start_mb = 1 + boot_mb
+    os_start_sector = os_start_mb * 1024 * 1024 // 512
+    run(["dd", f"if={osfs}", f"of={img_out}", "conv=notrunc", f"seek={os_start_sector}"])
+
+    tmp_files.extend([bootfs, osfs, img_out])
 
 def collect_source_files(rootdir):
     asm_files, c_files, h_files = [], [], []

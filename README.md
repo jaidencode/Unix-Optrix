@@ -42,11 +42,6 @@ script outputs `disk.img` which can be run with:
 qemu-system-x86_64 -hda disk.img
 ```
 
-`setup_bootloader.py` now produces a disk image with two FAT32 partitions using
-only Python code.  The first partition is marked bootable and sized at
-200&nbsp;MB while the second holds the OS data and is 1&nbsp;GB in size.  Install
-`pyfatfs` with `pip install pyfatfs` if it is not already available.
-
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
