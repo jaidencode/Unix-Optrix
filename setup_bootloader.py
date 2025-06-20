@@ -274,10 +274,13 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         sys.exit(1)
     if os.path.exists(iso_out):
         os.remove(iso_out)
-    cmd = [
-        MKISOFS_EXE,
-        "-quiet",
-        "-o", iso_out,
+    disk_path = os.path.join(tmp_iso_dir, "disk.img")
+    disk_size = os.path.getsize(disk_path) if os.path.exists(disk_path) else 0
+    cmd = [MKISOFS_EXE, "-quiet", "-o", iso_out]
+    # Allow arbitrary disk image sizes using El Torito hard-disk boot if needed
+    if disk_size not in {1200 * 1024, 1440 * 1024, 2880 * 1024}:
+        cmd.append("-hard-disk-boot")
+    cmd += [
         "-b", "disk.img",
         "-R", "-J", "-l",
         tmp_iso_dir
