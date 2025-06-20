@@ -4,6 +4,7 @@ ORG 0x7C00
 %ifndef KERNEL_SECTORS
 %define KERNEL_SECTORS 1
 %endif
+%define MAXREAD 120
 
 start:
     cli
@@ -30,16 +31,45 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at LBA 1)
-    mov word [dap_packet+2], KERNEL_SECTORS
-    mov word [dap_packet+4], 0x1000     ; offset
-    mov word [dap_packet+6], 0x0000     ; segment
-    mov dword [dap_packet+8], 1         ; starting LBA
+    ; load kernel from first partition using 64k-safe chunks
+    ; read partition table entry 1 for starting LBA
+    mov bx, 0x7C00 + 0x1BE + 8
+    mov eax, [bx]
+    mov dword [current_lba], eax
     mov dword [dap_packet+12], 0
+
+    mov ecx, KERNEL_SECTORS
+    mov edi, 0x1000
+.load_loop:
+    cmp ecx, MAXREAD
+    jbe .last_chunk
+    mov ax, MAXREAD
+    jmp .set_count
+.last_chunk:
+    mov ax, cx
+.set_count:
+    mov word [dap_packet+2], ax
+    mov eax, edi
+    mov dx, ax
+    and dx, 0xF
+    mov [dap_packet+4], dx
+    shr eax, 4
+    mov [dap_packet+6], ax
+    mov eax, [current_lba]
+    mov [dap_packet+8], eax
     mov si, dap_packet
     mov dl, [BOOT_DRIVE]
-    mov ah, 0x42      ; BIOS EXTENDED READ
+    mov ah, 0x42
     int 0x13
+    jc halt
+    movzx eax, word [dap_packet+2]
+    add [current_lba], eax
+    shl eax, 9
+    add edi, eax
+    movzx edx, word [dap_packet+2]
+    sub ecx, edx
+    cmp ecx, 0
+    jne .load_loop
 
     ; setup basic GDT for protected mode
     lgdt [gdt_desc]
@@ -62,9 +92,9 @@ protected_mode:
     mov esp, 0x90000
 
     call dword 0x1000
-.halt:
+halt:
     hlt
-    jmp .halt
+    jmp halt
 
 ; GDT setup
 [BITS 16]
@@ -77,6 +107,8 @@ gdt_end:
 gdt_desc:
     dw gdt_end - gdt_start - 1
     dd gdt_start
+
+current_lba: dd 0
 
 dap_packet:
     db 16,0       ; size, reserved

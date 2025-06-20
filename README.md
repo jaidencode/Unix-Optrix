@@ -2,7 +2,8 @@
 
 This project experiments with building a small Unix-like operating system. The
 boot sector is defined in `OptrixOS-Kernel/bootloader.asm` and now mimics the
-behaviour of the historic `fsboot` loader. When executed it:
+behaviour of the historic `fsboot` loader. The loader reads the kernel in
+64&nbsp;KB safe chunks so large images boot reliably. When executed it:
 
 - Copies itself away from `0x7c00` so memory can be cleared.
 - Clears a portion of RAM before loading the kernel.
@@ -38,7 +39,8 @@ python3 setup_bootloader.py
 The build now also creates a temporary 100&nbsp;MB storage image named
 `drive_c.img`. The bootable ISO includes this image so the OS can
 access additional storage during development. This file is deleted once
-the ISO generation completes.
+the ISO generation completes. All files placed in `OptrixOS-Kernel/resources`
+are automatically embedded into the initial filesystem.
 
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created.
 To attach a blank storage image in QEMU run the build script again to
