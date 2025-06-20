@@ -50,13 +50,6 @@ To boot from the ISO instead use:
 qemu-system-x86_64 -cdrom OptrixOS.iso
 ```
 
-`setup_bootloader.py` embeds a small MBR with two partitions. The first holds
-the kernel while the second is a 100&nbsp;MB region reserved for future storage.
-For convenience this second partition is also written out as `drive_c.img` and
-packaged with the ISO. When the disk image exceeds floppy sizes the script uses
-El&nbsp;Torito hard-disk boot mode so any `disk.img` size works for creating an
-ISO.
-
 ## Built-in terminal
 
 After boot the machine displays a plain text console. No graphics or windowing
