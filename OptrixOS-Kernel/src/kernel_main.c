@@ -13,6 +13,16 @@ void kernel_main(void) {
     screen_init();
     mem_init(HEAP_BASE, HEAP_SIZE);
     driver_init_all();
+    /* create a simple in-memory disk and parse its MBR */
+    disk_t* d = disk_create(512*1024, 512);
+    uint8_t buf[512];
+    disk_read(d, 0, buf, 1);
+    mbr_part_entry parts[4];
+    if(mbr_parse(buf, parts))
+        partition_create(d, parts[0].start_lba, parts[0].sectors);
+    /* create a simple in-memory disk and partition */
+    disk_t* d = disk_create(512*1024, 512);
+    (void)partition_create(d, 0, d->size / d->sector_size);
 
     /* create a simple in-memory disk and parse its MBR */
     disk_t* d = disk_create(512*1024, 512);
