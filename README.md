@@ -10,6 +10,7 @@ behaviour of the historic `fsboot` loader. When executed it:
   the interface).
 - Loads the kernel from the disk image into memory at `0x1000`.
 - Uses BIOS extended reads so kernels larger than 128&nbsp;KB load correctly.
+- Locates the boot partition via the MBR partition table.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
 - Sets the classic 80x25 text mode and jumps directly to the kernel.
@@ -49,10 +50,12 @@ To boot from the ISO instead use:
 qemu-system-x86_64 -cdrom OptrixOS.iso
 ```
 
-`setup_bootloader.py` also creates a zero-filled 100&nbsp;MB image named
-`drive_c.img` that is packaged alongside `disk.img` in the ISO. The running
-kernel does not currently implement a block device driver so this file acts only
-as a placeholder for future storage experiments.
+`setup_bootloader.py` embeds a small MBR with two partitions. The first holds
+the kernel while the second is a 100&nbsp;MB region reserved for future storage.
+For convenience this second partition is also written out as `drive_c.img` and
+packaged with the ISO. When the disk image exceeds floppy sizes the script uses
+El&nbsp;Torito hard-disk boot mode so any `disk.img` size works for creating an
+ISO.
 
 ## Built-in terminal
 
