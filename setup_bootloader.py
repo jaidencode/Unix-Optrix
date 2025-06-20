@@ -107,29 +107,28 @@ def make_partitioned_img(boot_bin, kernel_bin, img_out, storage_mb):
     kern_sectors = roundup(len(kern_bytes), 512) // 512
 
     start1 = 1
-    size1 = kern_sectors
-    start2 = start1 + size1
-    size2 = storage_mb * 1024 * 1024 // 512
+    size1 = kern_sectors + storage_mb * 1024 * 1024 // 512
 
     import struct
     entry_fmt = "<B3sB3sII"
     entry1 = struct.pack(entry_fmt, 0x80, b"\0\0\0", 0x83, b"\0\0\0", start1, size1)
-    entry2 = struct.pack(entry_fmt, 0x00, b"\0\0\0", 0x83, b"\0\0\0", start2, size2)
     boot[446:462] = entry1
-    boot[462:478] = entry2
+    boot[462:510] = b"\0" * 48
 
-    total_sectors = start2 + size2
+    total_sectors = start1 + size1
     img_size = roundup(total_sectors * 512, 512)
 
     with open(img_out, "wb") as img:
         img.write(boot)
         img.write(kern_bytes)
-        pad_after_kernel = (start2 * 512) - (512 + len(kern_bytes))
-        if pad_after_kernel > 0:
-            img.write(b"\0" * pad_after_kernel)
-        img.write(b"\0" * (size2 * 512))
+        pad = roundup(len(kern_bytes), 512) - len(kern_bytes)
+        if pad > 0:
+            img.write(b"\0" * pad)
+        remaining = size1 - kern_sectors
+        if remaining > 0:
+            img.write(b"\0" * remaining * 512)
 
-    print(f"Disk image ({img_size // 1024} KB) created with two partitions.")
+    print(f"Disk image ({img_size // 1024} KB) created with one partition.")
     tmp_files.append(img_out)
 
 def create_storage_img(path, size_mb):
