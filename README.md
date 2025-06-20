@@ -9,6 +9,8 @@ behaviour of the historic `fsboot` loader. When executed it:
 - Prompts for a kernel path (the input is currently ignored but demonstrates
   the interface).
 - Loads the kernel from the disk image into memory at `0x1000`.
+  The bootloader now reads the kernel sector by sector so images
+  larger than a single track load correctly.
 - Initializes a simple GDT and switches the CPU to 32-bit protected mode.
 - Jumps to the kernel entry point.
 - Sets the classic 80x25 text mode and jumps directly to the kernel.
