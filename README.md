@@ -35,9 +35,11 @@ Build the bootable image with:
 python3 setup_bootloader.py
 ```
 
-The build now also creates a blank 100&nbsp;MB storage image named
-`drive_c.img`. The bootable ISO includes this image so the OS can
-access additional storage during development.
+The build script now creates a partitioned `disk.img` containing two
+partitions. The first partition holds the bootloader and kernel while
+the second is reserved for future user data. A separate 100&nbsp;MB storage
+image named `drive_c.img` is still produced so the OS can access
+additional storage during development.
 
 If `mkisofs` is available an ISO named `OptrixOS.iso` is created along with
 `drive_c.img`. Boot the system with:

@@ -4,6 +4,18 @@ ORG 0x7C00
 %ifndef KERNEL_SECTORS
 %define KERNEL_SECTORS 1
 %endif
+%ifndef PART1_START
+%define PART1_START 2048
+%endif
+%ifndef PART1_SIZE
+%define PART1_SIZE 10240
+%endif
+%ifndef PART2_START
+%define PART2_START (PART1_START + PART1_SIZE)
+%endif
+%ifndef PART2_SIZE
+%define PART2_SIZE 204800
+%endif
 
 start:
     cli
@@ -30,13 +42,16 @@ start:
     jmp .printloop
 .doneprint:
 
-    ; load kernel (assumes kernel starts at second sector)
-    mov bx, 0x1000    ; ES:BX points to load address
+    ; locate first partition LBA and load kernel using LBA read
+    mov bx, 0x7C00 + 0x1BE + 8
+    mov eax, [bx]         ; starting LBA of partition 1
+    mov [dap_lba], eax
+    mov dword [dap_lba+4], 0
+
+    mov word [dap_sects], KERNEL_SECTORS
     mov dl, [BOOT_DRIVE]
-    mov dh, 0         ; head
-    mov ah, 0x02      ; BIOS read disk
-    mov al, KERNEL_SECTORS
-    mov cx, 0x0002    ; CH=0, CL=2 (sector 2)
+    mov si, dap
+    mov ah, 0x42          ; extended read
     int 0x13
 
     ; setup basic GDT for protected mode
@@ -78,8 +93,27 @@ gdt_desc:
 
 BOOT_DRIVE: db 0
 
+; Disk Address Packet for BIOS extended read
+dap:
+    dw 0x10
+    dw 0
+dap_sects: dw 0
+    dw 0x1000
+    dw 0
+dap_lba: dq 0
+
 bootmsg: db 'Loading OptrixOS...',0
 
-    ; boot signature
-    times 510-($-$$) db 0
+    ; pad up to partition table start
+    times 0x1BE-($-$$) db 0
+
+    ; partition table
+    db 0x80,0,0,0,0x83,0,0,0
+    dd PART1_START
+    dd PART1_SIZE
+    db 0x00,0,0,0,0x83,0,0,0
+    dd PART2_START
+    dd PART2_SIZE
+    times 16*2 db 0
+
     dw 0xAA55

@@ -38,6 +38,9 @@ KERNEL_BIN = "OptrixOS-kernel.bin"
 DISK_IMG = "disk.img"
 STORAGE_IMG = "drive_c.img"
 TMP_ISO_DIR = "_iso_tmp"
+BOOT_MB = 5
+DATA_MB = 100
+BOOT_LBA_START = 2048
 OBJ_DIR = "_build_obj"
 
 tmp_files = []
@@ -95,23 +98,38 @@ def compile_c(src, out):
 def roundup(x, align):
     return ((x + align - 1) // align) * align
 
-def make_dynamic_img(boot_bin, kernel_bin, img_out):
-    print("Creating dynamically-sized disk image...")
+def make_partitioned_img(boot_bin, kernel_bin, img_out,
+                         boot_mb=5, data_mb=100, lba_start=2048):
+    """Create a disk image with two partitions."""
+    print("Creating partitioned disk image...")
     boot = open(boot_bin, "rb").read()
     if len(boot) != 512:
         print("Error: Bootloader must be exactly 512 bytes!")
         sys.exit(1)
     kern = open(kernel_bin, "rb").read()
-    total = 512 + len(kern)
-    min_size = 1474560  # 1.44MB
-    img_size = roundup(total, 512)
-    if img_size < min_size:
-        img_size = min_size
+    kernel_size = len(kern)
+    kernel_sects = roundup(kernel_size, 512) // 512
+    boot_sectors = boot_mb * 1024 * 1024 // 512
+    data_start = lba_start + boot_sectors
+    data_sectors = data_mb * 1024 * 1024 // 512
+    total_sectors = data_start + data_sectors
+    img_size = total_sectors * 512
+    if kernel_sects > boot_sectors:
+        print("Error: kernel too big for boot partition")
+        sys.exit(1)
+
     with open(img_out, "wb") as img:
         img.write(boot)
+        # pad up to boot partition start
+        img.write(b"\0" * ((lba_start - 1) * 512))
+        # write kernel at start of boot partition
         img.write(kern)
-        img.write(b'\0' * (img_size - total))
-    print(f"Disk image ({img_size // 1024} KB) created (kernel+boot: {total} bytes).")
+        img.write(b"\0" * ((boot_sectors * 512) - kernel_size))
+        # pad rest of disk
+        remain = (total_sectors * 512) - (lba_start * 512 + boot_sectors * 512)
+        img.write(b"\0" * remain)
+
+    print(f"Disk image ({img_size // 1024} KB) created.")
     tmp_files.append(img_out)
 
 def make_storage_img(img_out, size_mb=100):
@@ -210,8 +228,23 @@ def build_kernel(asm_files, c_files, out_bin):
     kernel_bytes = os.path.getsize(out_bin)
     sectors = roundup(kernel_bytes, 512) // 512
 
+    boot_sectors = BOOT_MB * 1024 * 1024 // 512
+    data_start = BOOT_LBA_START + boot_sectors
+    data_sectors = DATA_MB * 1024 * 1024 // 512
+
     boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
+    assemble(
+        bootloader_src,
+        boot_bin,
+        fmt="bin",
+        defines={
+            "KERNEL_SECTORS": sectors,
+            "PART1_START": BOOT_LBA_START,
+            "PART1_SIZE": boot_sectors,
+            "PART2_START": data_start,
+            "PART2_SIZE": data_sectors,
+        },
+    )
 
     return boot_bin, out_bin
 
@@ -257,6 +290,9 @@ def make_iso_with_tree(tmp_iso_dir, iso_out):
         MKISOFS_EXE,
         "-quiet",
         "-o", iso_out,
+        "-no-emul-boot",
+        "-boot-load-size", "4",
+        "-boot-info-table",
         "-b", "disk.img",
         "-R", "-J", "-l",
         tmp_iso_dir
@@ -295,7 +331,7 @@ def main():
     c_files = list(dict.fromkeys(c_files))
     print(f"Found {len(asm_files)} asm, {len(c_files)} c, {len(h_files)} h files.")
     boot_bin, kernel_bin = build_kernel(asm_files, c_files, out_bin=KERNEL_BIN)
-    make_dynamic_img(boot_bin, kernel_bin, DISK_IMG)
+    make_partitioned_img(boot_bin, kernel_bin, DISK_IMG)
     make_storage_img(STORAGE_IMG, 100)
     copy_tree_to_iso(TMP_ISO_DIR, KERNEL_PROJECT_ROOT)
     make_iso_with_tree(TMP_ISO_DIR, OUTPUT_ISO)
