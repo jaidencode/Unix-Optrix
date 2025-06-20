@@ -6,9 +6,34 @@ import stat
 
 # --- CONFIGURATION ---
 TOOLCHAIN_DIR = os.environ.get("TOOLCHAIN_DIR") or r"C:\\Users\\jaide\\Downloads\\i686-elf-tools-windows\\bin"
-CC = os.environ.get("CC") or os.path.join(TOOLCHAIN_DIR, "i686-elf-gcc.exe")
-LD = os.environ.get("LD") or os.path.join(TOOLCHAIN_DIR, "i686-elf-ld.exe")
-OBJDUMP = os.environ.get("OBJDUMP") or os.path.join(TOOLCHAIN_DIR, "i686-elf-objdump.exe")
+
+# Select cross compiler if available, otherwise fall back to host tools
+CC = os.environ.get("CC")
+LD = os.environ.get("LD")
+OBJDUMP = os.environ.get("OBJDUMP")
+
+if not CC:
+    cc_candidate = os.path.join(TOOLCHAIN_DIR, "i686-elf-gcc.exe")
+    if os.path.isfile(cc_candidate) or shutil.which(cc_candidate):
+        CC = cc_candidate
+    else:
+        CC = shutil.which("gcc") or "gcc"
+        print("[setup_bootloader] Using host GCC (cross compiler not found)")
+
+if not LD:
+    ld_candidate = os.path.join(TOOLCHAIN_DIR, "i686-elf-ld.exe")
+    if os.path.isfile(ld_candidate) or shutil.which(ld_candidate):
+        LD = ld_candidate
+    else:
+        LD = shutil.which("ld") or "ld"
+        print("[setup_bootloader] Using host LD (cross linker not found)")
+
+if not OBJDUMP:
+    objdump_candidate = os.path.join(TOOLCHAIN_DIR, "i686-elf-objdump.exe")
+    if os.path.isfile(objdump_candidate) or shutil.which(objdump_candidate):
+        OBJDUMP = objdump_candidate
+    else:
+        OBJDUMP = shutil.which("objdump") or "objdump"
 NASM = "nasm"
 
 CDRTOOLS_DIR = os.environ.get("CDRTOOLS_DIR") or r"C:\\Program Files (x86)\\cdrtools"

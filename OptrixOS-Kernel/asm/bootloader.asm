@@ -77,6 +77,17 @@ start:
     jmp .search
 
 kernel_not_found:
+    mov si, kernel_fail_msg
+.fail_print:
+    lodsb
+    or al, al
+    jz .fail_done
+    mov ah, 0x0E
+    mov bh, 0
+    mov bl, 0x4F
+    int 0x10
+    jmp .fail_print
+.fail_done:
     jmp hang
 
 found_kernel:
@@ -164,6 +175,8 @@ KERNEL_SIZE: dd 0
 
 kernel_name: db 'KERNEL.BIN;1'
 kernel_name_len equ $ - kernel_name
+
+kernel_fail_msg: db 'Kernel not found!',0
 
 bootmsg: db 'Loading OptrixOS...',0
 

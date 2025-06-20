@@ -18,8 +18,15 @@ The kernel runs entirely in text mode and provides a small shell interface.
 Use `python3 setup_bootloader.py` to assemble and link the boot files. The
 script builds a small custom kernel located in `OptrixOS-Kernel/` and produces
 `OptrixOS-kernel.bin`. A cross compiler (`i686-linux-gnu-gcc`/`ld`) is preferred,
-but if it is not installed the script will fall back to the system `gcc` and
-`ld` with `-m32`.
+but if it is not installed the script automatically falls back to the system
+`gcc`/`ld` with `-m32`.
+
+If the cross compiler is not in your `PATH` you can explicitly invoke the
+builder using the host tools like so:
+
+```bash
+CC=gcc LD=ld python3 setup_bootloader.py
+```
 
 
 
