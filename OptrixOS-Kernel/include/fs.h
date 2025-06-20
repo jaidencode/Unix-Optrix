@@ -1,6 +1,8 @@
 #ifndef FS_H
 #define FS_H
 
+#include <stddef.h>
+
 typedef struct fs_entry {
     char* name;
     int is_dir;
@@ -8,6 +10,7 @@ typedef struct fs_entry {
     struct fs_entry* child;
     struct fs_entry* sibling;
     char* content;
+    size_t size;
 } fs_entry;
 
 fs_entry* fs_find_entry(fs_entry* dir, const char* name);
