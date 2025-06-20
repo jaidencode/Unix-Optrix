@@ -20,6 +20,7 @@ KERNEL_PROJECT_ROOT = "OptrixOS-Kernel"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_ISO = os.path.join(SCRIPT_DIR, "OptrixOS.iso")
 KERNEL_BIN = "OptrixOS-kernel.bin"
+ISO_KERNEL_NAME = "KERNEL.BIN"
 TMP_ISO_DIR = "_iso_tmp"
 OBJ_DIR = "_build_obj"
 
@@ -113,10 +114,8 @@ def build_kernel(asm_files, c_files, out_bin):
     ] + obj_files + ["-o", out_bin]
     run(link_cmd_bin)
     tmp_files.append(out_bin)
-    kernel_bytes = os.path.getsize(out_bin)
-    sectors = roundup(kernel_bytes, 512) // 512
     boot_bin = "bootloader.bin"
-    assemble(bootloader_src, boot_bin, fmt="bin", defines={"KERNEL_SECTORS": sectors})
+    assemble(bootloader_src, boot_bin, fmt="bin")
     return boot_bin, out_bin
 
 def pad_bootloader_for_no_emul(bootloader_bin, out_path="bootloader_padded.bin"):
@@ -157,10 +156,8 @@ def copy_tree_to_iso(tmp_iso_dir, proj_root, boot_img_name, kernel_bin):
     if os.path.exists(tmp_iso_dir):
         shutil.rmtree(tmp_iso_dir, onerror=on_rm_error)
     os.makedirs(tmp_iso_dir, exist_ok=True)
-    kernel_dest = os.path.join(tmp_iso_dir, os.path.basename(proj_root))
-    shutil.copytree(proj_root, kernel_dest, dirs_exist_ok=True)
     shutil.copy(boot_img_name, os.path.join(tmp_iso_dir, os.path.basename(boot_img_name)))
-    shutil.copy(kernel_bin, os.path.join(tmp_iso_dir, os.path.basename(kernel_bin)))
+    shutil.copy(kernel_bin, os.path.join(tmp_iso_dir, ISO_KERNEL_NAME))
     # Add all partition images
     for img in [BOOT_IMG, FS_IMG, OS_IMG]:
         if os.path.exists(img):
